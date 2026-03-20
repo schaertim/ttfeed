@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: ttfeed-postgres
+    environment:
+      POSTGRES_USER: ttfeed
+      POSTGRES_PASSWORD: ttfeed
+      POSTGRES_DB: ttfeed
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
