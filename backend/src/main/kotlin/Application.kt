@@ -1,5 +1,6 @@
 package com.ttfeed
 
+import com.ttfeed.database.configureDatabase
 import io.ktor.server.application.*
 
 fun main(args: Array<String>) {
@@ -7,7 +8,5 @@ fun main(args: Array<String>) {
 }
 
 fun Application.module() {
-    configureSerialization()
-    configureDatabases()
-    configureRouting()
+    configureDatabase()
 }

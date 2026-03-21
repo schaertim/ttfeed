@@ -25,6 +25,8 @@ dependencies {
     implementation(libs.exposed.jdbc)
     implementation(libs.ktor.server.netty)
     implementation(libs.logback.classic)
+    implementation("org.flywaydb:flyway-core:10.10.0")
+    implementation("org.flywaydb:flyway-database-postgresql:10.10.0")
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
 }
