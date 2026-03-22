@@ -1,4 +1,4 @@
-package com.ttfeed.com.ttfeed.database
+package com.ttfeed.database
 
 import io.ktor.server.application.*
 import org.flywaydb.core.Flyway

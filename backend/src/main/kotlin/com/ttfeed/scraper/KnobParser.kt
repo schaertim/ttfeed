@@ -198,6 +198,38 @@ class KnobParser {
         return ParsedMatchDetail(matchId, games)
     }
 
+    fun parseLeagues(html: String): List<Pair<Int, String>> {
+        val doc = Jsoup.parse(html)
+        return doc.select("ul#rvNav li a")
+            .mapNotNull { link ->
+                val rvid = extractParam(link.attr("href"), "rvid")?.toIntOrNull() ?: return@mapNotNull null
+                val name = link.text().trim()
+                Pair(rvid, name)
+            }
+    }
+
+    fun parseDivisionLinks(html: String): List<Pair<Int, String>> {
+        val doc = Jsoup.parse(html)
+        val allNavLists = doc.select("ul#mainNav")
+
+        // The first mainNav block is always STT — skip it
+        // The second block is the active league's divisions
+        // There may be a third block for veterans/women within the same league
+        // We skip the first and take the rest
+        return allNavLists.drop(1)
+            .flatMap { navList ->
+                navList.select("li a").mapNotNull { link ->
+                    val href = link.attr("href")
+                    val gruppe = extractParam(href, "gruppe")?.toIntOrNull()
+                        ?: return@mapNotNull null
+                    if (gruppe >= 500) return@mapNotNull null
+                    val name = link.text().trim().removePrefix("NWTTV ")
+                    Pair(gruppe, name)
+                }
+            }
+            .distinctBy { it.first }
+    }
+
     // Extracts ?key=value from a URL string
     private fun extractParam(url: String, key: String): String? {
         return url.split("&", "?")
@@ -213,4 +245,6 @@ class KnobParser {
             ?.substringAfter("=")
             ?.trim()
     }
+
+
 }
