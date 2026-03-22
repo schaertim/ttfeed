@@ -41,10 +41,9 @@ class KnobScraper(
         logger.info("Division $divisionName done — ${page.teams.size} teams, ${page.players.size} players, ${page.matches.size} matches")
     }
 
-    suspend fun scrapeMatchDetail(gruppeId: Int, knobMatchId: Int) {
-        logger.info("Scraping match detail: matchid=$knobMatchId")
-
-        val html = client.fetchMatchDetail(gruppeId, knobMatchId)
+    suspend fun scrapeMatchDetail(gruppeId: Int, knobMatchId: Int, season: String) {
+        logger.info("Scraping match detail: matchid=$knobMatchId gruppe=$gruppeId season=$season")
+        val html = client.fetchMatchDetail(gruppeId, knobMatchId, season)
         val detail = parser.parseMatchDetail(html, knobMatchId)
 
         transaction {

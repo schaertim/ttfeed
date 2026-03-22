@@ -129,33 +129,27 @@ class KnobParser {
 
     fun parseMatchDetail(html: String, matchId: Int): ParsedMatchDetail {
         val doc = Jsoup.parse(html)
-        val games = mutableListOf<ParsedGame>()
 
-        // Game rows are in the detailed match table — identified by the Partie/Details header row
         val gameTable = doc.select("tr:has(td:containsOwn(Partie))")
             .firstOrNull()
             ?.parent()
             ?: return ParsedMatchDetail(matchId, emptyList())
 
         val gameRows = gameTable.select("tr.psodd, tr.playerStats")
+        val games = mutableListOf<ParsedGame>()
         var order = 1
 
         for (row in gameRows) {
             val cells = row.select("td")
             if (cells.size < 15) continue
 
-            val label = cells[0].text().trim() // e.g. "A-X", "B-Y", "D-X" (doubles)
             val isDoubles = cells[1].text().contains("/")
 
-            val homePlayerLink = cells[1].selectFirst("a")
-            val awayPlayerLink = cells[2].selectFirst("a")
+            val homePlayer1Id = cells[1].selectFirst("a")
+                ?.attr("href")?.let { extractParam(it, "gid") }?.toIntOrNull()
+            val awayPlayer1Id = cells[2].selectFirst("a")
+                ?.attr("href")?.let { extractParam(it, "gid") }?.toIntOrNull()
 
-            val homePlayer1Id = homePlayerLink?.attr("href")
-                ?.let { extractParam(it, "gid") }?.toIntOrNull()
-            val awayPlayer1Id = awayPlayerLink?.attr("href")
-                ?.let { extractParam(it, "gid") }?.toIntOrNull()
-
-            // Sets: cells 3..7 contain individual set scores like "5:11"
             val sets = mutableListOf<ParsedSet>()
             var setNumber = 1
             for (i in 3..7) {
@@ -168,14 +162,12 @@ class KnobParser {
                 setNumber++
             }
 
-            // Sets won: cells 8,9,10 = home:away
             val homeSets = cells.getOrNull(8)?.text()?.trim()?.toIntOrNull()
             val awaySets = cells.getOrNull(10)?.text()?.trim()?.toIntOrNull()
 
             val result = when {
                 homeSets != null && awaySets != null && homeSets > awaySets -> "home"
                 homeSets != null && awaySets != null && awaySets > homeSets -> "away"
-                homeSets == 0 && awaySets == 0 -> "not_played"
                 else -> "not_played"
             }
 
@@ -184,7 +176,7 @@ class KnobParser {
                     orderInMatch = order++,
                     gameType = if (isDoubles) "doubles" else "singles",
                     homePlayer1KnobId = homePlayer1Id,
-                    homePlayer2KnobId = null, // doubles parsing deferred
+                    homePlayer2KnobId = null,
                     awayPlayer1KnobId = awayPlayer1Id,
                     awayPlayer2KnobId = null,
                     homeSets = homeSets,

@@ -1,5 +1,9 @@
 package com.ttfeed.scraper
 
+import com.ttfeed.database.Divisions
+import com.ttfeed.database.Games
+import com.ttfeed.database.Matches
+import com.ttfeed.database.Seasons
 import kotlinx.coroutines.delay
 import org.jetbrains.exposed.sql.and
 import org.slf4j.LoggerFactory
@@ -62,42 +66,48 @@ class BackfillScraper(
         divisionName: String
     ) {
         try {
-            delay(300) // be polite to knob.ch
+            delay(300)
             scraper.scrapeDivision(gruppeId, season, leagueName, divisionName)
-            scrapeCompletedMatches(gruppeId)
+
+            val seasonYear = season.substringBefore("/").toIntOrNull() ?: 0
+            if (seasonYear >= 2000) {
+                scrapeCompletedMatches()
+            }
         } catch (e: Exception) {
             logger.error("Failed scraping division gruppe=$gruppeId season=$season: ${e.message}")
-            // Continue with next division — don't let one failure stop the backfill
         }
     }
 
-    private suspend fun scrapeCompletedMatches(gruppeId: Int) {
-        // Get all completed matches for this division that don't have games yet
-        val matchIds = getCompletedMatchesWithoutGames()
-        logger.info("Scraping ${matchIds.size} match details for gruppe=$gruppeId")
-
-        for (matchId in matchIds) {
+    private suspend fun scrapeCompletedMatches() {
+        val matchTriples = getCompletedMatchesWithoutGames()
+        logger.info("Scraping ${matchTriples.size} match details")
+        for ((gruppe, matchId, season) in matchTriples) {
             try {
                 delay(300)
-                scraper.scrapeMatchDetail(gruppeId, matchId)
+                scraper.scrapeMatchDetail(gruppe, matchId, season)
             } catch (e: Exception) {
                 logger.error("Failed scraping match detail matchid=$matchId: ${e.message}")
             }
         }
     }
 
-    private fun getCompletedMatchesWithoutGames(): List<Int> {
+    private fun getCompletedMatchesWithoutGames(): List<Triple<Int, Int, String>> {
         return org.jetbrains.exposed.sql.transactions.transaction {
-            val gamesSubquery = com.ttfeed.database.Games
-                .select(com.ttfeed.database.Games.matchId)
+            val gamesSubquery = Games.select(Games.matchId)
 
-            com.ttfeed.database.Matches
-                .select(com.ttfeed.database.Matches.knobMatchId)
+            (Matches innerJoin Divisions innerJoin Seasons)
+                .select(Matches.knobMatchId, Divisions.knobGruppe, Seasons.name)
                 .where {
-                    (com.ttfeed.database.Matches.status eq "completed") and
-                            (com.ttfeed.database.Matches.id notInSubQuery gamesSubquery)
+                    (Matches.status eq "completed") and
+                            (Matches.id notInSubQuery gamesSubquery) and
+                            (Divisions.knobGruppe.isNotNull())
                 }
-                .mapNotNull { it[com.ttfeed.database.Matches.knobMatchId] }
+                .mapNotNull { row ->
+                    val matchId = row[Matches.knobMatchId] ?: return@mapNotNull null
+                    val gruppe = row[Divisions.knobGruppe] ?: return@mapNotNull null
+                    val season = row[Seasons.name]
+                    Triple(gruppe, matchId, season)
+                }
         }
     }
 

@@ -22,10 +22,7 @@ fun Application.module() {
             val parser = KnobParser()
             val scraper = KnobScraper(client, parser)
             val backfill = BackfillScraper(client, parser, scraper)
-
-            // Test with just current season first
-            backfill.runSingleSeason("2025/2026")
-
+            backfill.run()
             client.close()
         } catch (e: Exception) {
             e.printStackTrace()

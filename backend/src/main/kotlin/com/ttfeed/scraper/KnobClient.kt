@@ -26,8 +26,9 @@ class KnobClient {
         return fetchWithRetry(url)
     }
 
-    suspend fun fetchMatchDetail(gruppeId: Int, matchId: Int): String {
-        return fetchWithRetry("$baseUrl?gruppe=$gruppeId&matchid=$matchId")
+    suspend fun fetchMatchDetail(gruppeId: Int, matchId: Int, season: String): String {
+        val ms = season.replace("/", "")
+        return fetchWithRetry("$baseUrl?gruppe=$gruppeId&matchid=$matchId&ms=$ms")
     }
 
     suspend fun fetchLeaguePage(rvid: Int, season: String? = null): String {
