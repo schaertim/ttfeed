@@ -27,6 +27,10 @@ dependencies {
     implementation(libs.logback.classic)
     implementation("org.flywaydb:flyway-core:10.10.0")
     implementation("org.flywaydb:flyway-database-postgresql:10.10.0")
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.jsoup)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlin.test.junit)
 }

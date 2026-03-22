@@ -1,10 +1,11 @@
 package com.ttfeed
 
-import com.ttfeed.database.configureDatabase
+import com.ttfeed.com.ttfeed.database.configureDatabase
 import io.ktor.server.application.*
+import io.ktor.server.netty.EngineMain
 
 fun main(args: Array<String>) {
-    io.ktor.server.netty.EngineMain.main(args)
+    EngineMain.main(args)
 }
 
 fun Application.module() {
