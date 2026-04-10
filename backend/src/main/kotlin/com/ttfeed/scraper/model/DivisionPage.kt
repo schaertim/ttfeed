@@ -16,17 +16,43 @@ data class ParsedPlayer(
 
 data class ParsedMatch(
     val knobMatchId: Int,
-    val round: Int,
+    val round: String?,
     val homeKnobTeamId: Int,
     val awayKnobTeamId: Int,
-    val playedAt: String?,       // raw date string, e.g. "Sa. 15.11.2025 14:00"
-    val homeScore: Int?,         // null if not yet played
+    val playedAt: String?,
+    val homeScore: Int?,
     val awayScore: Int?,
-    val status: String           // "scheduled" or "completed"
+    val status: String
 )
 
 data class ParsedDivisionPage(
     val teams: List<ParsedTeam>,
     val players: List<ParsedPlayer>,
-    val matches: List<ParsedMatch>
+    val matches: List<ParsedMatch>,
+    val standings: List<ParsedStandingRow>,
+    val promotionSpots: Int,
+    val relegationSpots: Int
+)
+
+data class ParsedStandingRow(
+    val position: Int,
+    val knobTeamId: Int,
+    val played: Int,
+    val won: Int,
+    val drawn: Int,
+    val lost: Int,
+    val gamesFor: Int,
+    val gamesAgainst: Int,
+    val points: Int
+)
+
+data class ParsedStandingsPage(
+    val standings: List<ParsedStandingRow>,
+    val promotionSpots: Int,
+    val relegationSpots: Int
+)
+
+data class ParsedLicensedPlayer(
+    val fullName: String,
+    val licenceNr: String
 )

@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory
 
 class KnobClient {
     private val baseUrl = "https://www.knob.ch/ms/index.php"
-    private val logger = LoggerFactory.getLogger(KnobClient::class.java)
+    private val logger  = LoggerFactory.getLogger(KnobClient::class.java)
 
     private val client = HttpClient(CIO) {
         followRedirects = true
@@ -18,36 +18,30 @@ class KnobClient {
         }
     }
 
-    suspend fun fetchDivisionPage(gruppeId: Int, season: String? = null): String {
+    suspend fun fetchDivisionPage(gruppeId: Int, season: String? = null, rvid: Int? = null): String {
         val url = buildString {
-            append("$baseUrl?gruppe=$gruppeId")
+            append("$baseUrl?gruppe=$gruppeId&listmode=2")
+            if (rvid != null) append("&rvid=$rvid")
             if (season != null) append("&ms=${season.replace("/", "")}")
         }
         return fetchWithRetry(url)
     }
 
-    suspend fun fetchMatchDetail(gruppeId: Int, matchId: Int, season: String): String {
-        val ms = season.replace("/", "")
-        return fetchWithRetry("$baseUrl?gruppe=$gruppeId&matchid=$matchId&ms=$ms")
-    }
-
-    suspend fun fetchLeaguePage(rvid: Int, season: String? = null): String {
+    suspend fun fetchMatchDetail(gruppeId: Int, matchId: Int, season: String, rvid: Int?): String {
         val url = buildString {
-            append("$baseUrl?rvid=$rvid")
-            if (season != null) append("&ms=${season.replace("/", "")}")
+            append("$baseUrl?gruppe=$gruppeId&matchid=$matchId&ms=${season.replace("/", "")}")
+            if (rvid != null) append("&rvid=$rvid")
         }
         return fetchWithRetry(url)
     }
 
-    suspend fun fetchMainPage(season: String? = null): String {
-        val url = buildString {
-            append(baseUrl)
-            if (season != null) append("?ms=${season.replace("/", "")}")
-        }
+    suspend fun fetchOverallPlayers(season: String): String {
+        val url = "$baseUrl?overall=5&ms=${season.replace("/", "")}"
         return fetchWithRetry(url)
     }
 
     private suspend fun fetchWithRetry(url: String, maxAttempts: Int = 3): String {
+        delay(10)
         var lastException: Exception? = null
         repeat(maxAttempts) { attempt ->
             try {
@@ -55,7 +49,7 @@ class KnobClient {
             } catch (e: Exception) {
                 lastException = e
                 logger.warn("Fetch attempt ${attempt + 1} failed for $url: ${e.message}")
-                delay(2000L * (attempt + 1)) // exponential backoff: 2s, 4s, 6s
+                delay(500L * (attempt + 1))
             }
         }
         throw lastException!!

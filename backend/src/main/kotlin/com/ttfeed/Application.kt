@@ -1,10 +1,11 @@
 package com.ttfeed
 
 import com.ttfeed.database.configureDatabase
+import com.ttfeed.plugins.configureRouting
+import com.ttfeed.plugins.configureSerialization
 import com.ttfeed.scraper.BackfillScraper
 import com.ttfeed.scraper.KnobClient
 import com.ttfeed.scraper.KnobParser
-import com.ttfeed.scraper.KnobScraper
 import io.ktor.server.application.*
 import io.ktor.server.netty.*
 import kotlinx.coroutines.launch
@@ -15,17 +16,17 @@ fun main(args: Array<String>) {
 
 fun Application.module() {
     configureDatabase()
-
+    configureSerialization()
+    configureRouting()
     launch {
+        val client = KnobClient()
         try {
-            val client = KnobClient()
-            val parser = KnobParser()
-            val scraper = KnobScraper(client, parser)
-            val backfill = BackfillScraper(client, parser, scraper)
+            val backfill = BackfillScraper(client, KnobParser())
             backfill.run()
-            client.close()
         } catch (e: Exception) {
-            e.printStackTrace()
+            log.error("Backfill failed", e)
+        } finally {
+            client.close()
         }
     }
 }

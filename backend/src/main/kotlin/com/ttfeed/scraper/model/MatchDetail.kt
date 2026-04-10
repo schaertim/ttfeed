@@ -8,18 +8,25 @@ data class ParsedSet(
 
 data class ParsedGame(
     val orderInMatch: Int,
-    val gameType: String,          // "singles" or "doubles"
+    val gameType: String,
     val homePlayer1KnobId: Int?,
-    val homePlayer2KnobId: Int?,   // doubles only
+    val homePlayer2KnobId: Int?,
     val awayPlayer1KnobId: Int?,
-    val awayPlayer2KnobId: Int?,   // doubles only
+    val awayPlayer2KnobId: Int?,
     val homeSets: Int?,
     val awaySets: Int?,
-    val result: String,            // "home", "away", "not_played"
+    val result: String,
     val sets: List<ParsedSet>
 )
 
 data class ParsedMatchDetail(
     val knobMatchId: Int,
     val games: List<ParsedGame>
+)
+
+data class GruppePageResult(
+    val gruppeId: Int,
+    val leagueName: String,
+    val divisionName: String,
+    val groupName: String
 )
