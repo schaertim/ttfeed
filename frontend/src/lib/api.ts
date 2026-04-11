@@ -30,6 +30,8 @@ export type Division = {
 export type Group = {
 	id: string;
 	name: string;
+	promotionSpots: number | null;
+	relegationSpots: number | null;
 };
 
 export type Standing = {
@@ -107,6 +109,7 @@ export const api = {
 	divisions: {
 		list: (params?: { league?: string; season?: string }) => {
 			const qs = new URLSearchParams();
+			console.log(params?.season);
 			if (params?.league) qs.set('league', params.league);
 			if (params?.season) qs.set('season', params.season);
 			const query = qs.toString();
@@ -117,6 +120,8 @@ export const api = {
 	},
 
 	groups: {
+		get: (groupId: string) =>
+			get<Group>(`/groups/${groupId}`),
 		standings: (groupId: string) =>
 			get<Standing[]>(`/groups/${groupId}/standings`),
 		matches: (groupId: string) =>

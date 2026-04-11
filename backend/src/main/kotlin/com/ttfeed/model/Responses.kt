@@ -14,6 +14,8 @@ data class DivisionResponse(
 data class GroupResponse(
     val id: String,
     val name: String,
+    val promotionSpots: Int?,
+    val relegationSpots: Int?,
 )
 @Serializable
 data class StandingResponse(

@@ -35,7 +35,7 @@ object DivisionService {
         return withContext(Dispatchers.IO) {
             transaction {
                 Groups
-                    .select(Groups.id, Groups.name)
+                    .select(Groups.id, Groups.name, Groups.promotionSpots, Groups.relegationSpots)
                     .where { Groups.divisionId eq uuid }
                     .map { it.toGroupResponse() }
             }
@@ -50,7 +50,9 @@ object DivisionService {
     )
 
     private fun ResultRow.toGroupResponse() = GroupResponse(
-        id   = this[Groups.id].toString(),
-        name = this[Groups.name],
+        id             = this[Groups.id].toString(),
+        name           = this[Groups.name],
+        promotionSpots = this[Groups.promotionSpots]?.toInt(),
+        relegationSpots= this[Groups.relegationSpots]?.toInt(),
     )
 }

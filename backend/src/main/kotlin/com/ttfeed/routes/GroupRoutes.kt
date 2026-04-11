@@ -1,5 +1,6 @@
 package com.ttfeed.routes
 
+import com.ttfeed.service.GroupService
 import com.ttfeed.service.MatchService
 import com.ttfeed.service.StandingsService
 import io.ktor.http.*
@@ -8,6 +9,13 @@ import io.ktor.server.routing.*
 
 fun Route.groupRoutes() {
     route("/groups") {
+        get("/{id}") {
+            val id = call.parameters["id"]
+                ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing group id")
+            val group = GroupService.getById(id)
+                ?: return@get call.respond(HttpStatusCode.NotFound, "Group not found")
+            call.respond(group)
+        }
         get("/{id}/standings") {
             val id = call.parameters["id"]
                 ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing group id")
