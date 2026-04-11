@@ -11,6 +11,7 @@ fun Application.configureRouting() {
             federationRoutes()
             divisionRoutes()
             groupRoutes()
+            teamRoutes()
             matchRoutes()
             playerRoutes()
         }

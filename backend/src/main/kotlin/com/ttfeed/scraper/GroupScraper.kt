@@ -225,13 +225,19 @@ class GroupScraper(
 
     private fun upsertTeams(teams: List<ParsedTeam>, groupId: UUID): Map<Int, UUID> {
         return teams.associate { team ->
+            // Safely strip ONLY trailing numbers, roman numerals, or single letters
+            // e.g., "Burgdorf 1" -> "Burgdorf", "Young Stars ZH" -> "Young Stars ZH"
+            val cleanClubName = team.name.replace(Regex("""\s+(\d+|[IVX]+|[a-zA-Z])$"""), "").trim()
+
             Clubs.insertIgnore {
-                // Club name is derived by dropping the team suffix (e.g. "Carouge 1" → "Carouge")
-                it[Clubs.name]   = team.name.substringBeforeLast(" ").trim()
+                it[Clubs.name]   = cleanClubName
+                // We still save the knobId for history, but we don't rely on it being unique
                 it[Clubs.knobId] = team.knobClubId
             }
+
+            // Fetch the club ID by its true NAME, not the unreliable knobId
             val clubId = Clubs.select(Clubs.id)
-                .where { Clubs.knobId eq team.knobClubId }
+                .where { Clubs.name eq cleanClubName }
                 .first()[Clubs.id]
 
             // Team knobIds are only unique within a group — check by (knobId, groupId)

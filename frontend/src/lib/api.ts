@@ -34,6 +34,22 @@ export type Group = {
 	relegationSpots: number | null;
 };
 
+export type TeamSummary = {
+	id: string;
+	name: string;
+	record: string;
+	points: number;
+	streak: string;
+};
+
+export type TeamPlayer = {
+	id: string;
+	fullName: string;
+	licenceNr: string;
+	wins: number;
+	losses: number;
+};
+
 export type Standing = {
 	teamId: string;
 	team: string;
@@ -84,6 +100,8 @@ export type Player = {
 	id: string;
 	fullName: string;
 	licenceNr: string;
+	currentClubName: string | null;
+	klass: string | null;
 };
 
 export type PagedResponse<T> = {
@@ -126,6 +144,12 @@ export const api = {
 			get<Standing[]>(`/groups/${groupId}/standings`),
 		matches: (groupId: string) =>
 			get<Match[]>(`/groups/${groupId}/matches`),
+	},
+
+	teams: {
+		get: (teamId: string) => get<TeamSummary>(`/teams/${teamId}`),
+		roster: (teamId: string) => get<TeamPlayer[]>(`/teams/${teamId}/roster`),
+		matches: (teamId: string) => get<Match[]>(`/teams/${teamId}/matches`),
 	},
 
 	matches: {

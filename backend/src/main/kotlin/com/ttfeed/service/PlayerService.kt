@@ -1,12 +1,14 @@
 package com.ttfeed.service
 
-import com.ttfeed.database.Players
+import com.ttfeed.database.*
 import com.ttfeed.model.PagedResponse
 import com.ttfeed.model.PlayerResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jetbrains.exposed.sql.LikePattern
+import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SortOrder
+import org.jetbrains.exposed.sql.lowerCase
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.*
 
@@ -20,11 +22,7 @@ object PlayerService {
                 Players.select(Players.id, Players.fullName, Players.licenceNr)
                     .where { Players.id eq uuid }
                     .firstOrNull()
-                    ?.let { PlayerResponse(
-                        id        = it[Players.id].toString(),
-                        fullName  = it[Players.fullName],
-                        licenceNr = it[Players.licenceNr]
-                    )}
+                    ?.toPlayerResponse()
             }
         }
     }
@@ -37,26 +35,63 @@ object PlayerService {
                 val pattern = LikePattern("%${name.lowercase()}%")
 
                 val total = Players.select(Players.id)
-                    .where { Players.fullName like pattern }
+                    .where { Players.fullName.lowerCase() like pattern }
                     .count()
 
-                val items = Players.select(Players.id, Players.fullName, Players.licenceNr)
-                    .where { Players.fullName like pattern }
+                // STEP 1: Fetch the core players first (Ensures Sergey is found!)
+                val basePlayers = Players.select(Players.id, Players.fullName, Players.licenceNr)
+                    .where { Players.fullName.lowerCase() like pattern }
                     .orderBy(Players.fullName to SortOrder.ASC)
-                    .limit(size).offset(start = (page * size).toLong())
-                    .map { PlayerResponse(
-                        id        = it[Players.id].toString(),
-                        fullName  = it[Players.fullName],
-                        licenceNr = it[Players.licenceNr]
-                    )}
+                    .limit(size).offset(start = (page * size).toLong()).toList()
+
+                val playerIds = basePlayers.map { it[Players.id] }
+
+                if (playerIds.isEmpty()) {
+                    return@transaction PagedResponse(emptyList(), page, size, total)
+                }
+
+                // STEP 2: Fetch optional stats ONLY for the players we found
+                val playerStats = (PlayerSeasons innerJoin Teams innerJoin Clubs innerJoin Seasons)
+                    .select(PlayerSeasons.playerId, PlayerSeasons.klass, Clubs.name)
+                    .where { PlayerSeasons.playerId inList playerIds }
+                    .orderBy(Seasons.name to SortOrder.DESC) // Get newest season first
+                    .toList()
+                    .groupBy { it[PlayerSeasons.playerId] }
+                    .mapValues { it.value.first() }
+
+                // STEP 3: Map them together. If stats are missing, they safely default to null.
+                val items = basePlayers.map { row ->
+                    val pId = row[Players.id]
+                    val stats = playerStats[pId]
+
+                    row.toPlayerResponse(
+                        currentClubName = stats?.get(Clubs.name),
+                        klass = stats?.get(PlayerSeasons.klass),
+                        currentElo = null // Mocking until click-tt scraper is done
+                    )
+                }
 
                 PagedResponse(
                     items = items,
-                    page  = page,
-                    size  = size,
+                    page = page,
+                    size = size,
                     total = total
                 )
             }
         }
     }
+
+    // Centralized mapper to keep things consistent with your other services
+    private fun ResultRow.toPlayerResponse(
+        currentClubName: String? = null,
+        klass: String? = null,
+        currentElo: Int? = null
+    ) = PlayerResponse(
+        id              = this[Players.id].toString(),
+        fullName        = this[Players.fullName],
+        licenceNr       = this[Players.licenceNr],
+        currentClubName = currentClubName,
+        klass           = klass,
+        currentElo      = currentElo
+    )
 }

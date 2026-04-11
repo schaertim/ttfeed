@@ -90,7 +90,11 @@
 								{row.position}
 							</Table.Cell>
 
-							<Table.Cell class="text-sm font-medium">{row.team}</Table.Cell>
+							<Table.Cell class="text-sm font-medium">
+								<a href="/teams/{row.teamId}" class="hover:underline text-primary">
+									{row.team}
+								</a>
+							</Table.Cell>
 
 							<Table.Cell class="text-center tabular-nums">
 								{row.played}

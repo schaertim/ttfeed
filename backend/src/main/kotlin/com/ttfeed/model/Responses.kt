@@ -10,6 +10,25 @@ data class DivisionResponse(
     val federation: String,
     val season: String,
 )
+
+@Serializable
+data class TeamSummaryResponse(
+    val id: String,
+    val name: String,
+    val record: String,
+    val points: Int,
+    val streak: String
+)
+
+@Serializable
+data class TeamPlayerResponse(
+    val id: String,
+    val fullName: String,
+    val licenceNr: String,
+    val wins: Int,
+    val losses: Int
+)
+
 @Serializable
 data class GroupResponse(
     val id: String,
@@ -93,6 +112,9 @@ data class PlayerResponse(
     val id: String,
     val fullName: String,
     val licenceNr: String,
+    val currentClubName: String? = null,
+    val klass: String? = null,
+    val currentElo: Int? = null
 )
 
 @Serializable
