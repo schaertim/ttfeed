@@ -1,4 +1,4 @@
-package com.ttfeed.scraper
+package com.ttfeed.scraper.knob
 
 import com.ttfeed.database.*
 import org.jetbrains.exposed.sql.and

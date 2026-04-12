@@ -1,4 +1,4 @@
-package com.ttfeed.scraper.model
+package com.ttfeed.scraper.knob.model
 
 data class ParsedSet(
     val setNumber: Int,

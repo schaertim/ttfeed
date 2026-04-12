@@ -1,8 +1,19 @@
-package com.ttfeed.scraper
+package com.ttfeed.scraper.knob
 
-import com.ttfeed.scraper.model.*
+import com.ttfeed.scraper.knob.model.GruppePageResult
+import com.ttfeed.scraper.knob.model.ParsedDivisionPage
+import com.ttfeed.scraper.knob.model.ParsedGame
+import com.ttfeed.scraper.knob.model.ParsedLicensedPlayer
+import com.ttfeed.scraper.knob.model.ParsedMatch
+import com.ttfeed.scraper.knob.model.ParsedMatchDetail
+import com.ttfeed.scraper.knob.model.ParsedPlayer
+import com.ttfeed.scraper.knob.model.ParsedSet
+import com.ttfeed.scraper.knob.model.ParsedStandingRow
+import com.ttfeed.scraper.knob.model.ParsedStandingsPage
+import com.ttfeed.scraper.knob.model.ParsedTeam
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 
 class KnobParser {
 
@@ -56,10 +67,10 @@ class KnobParser {
         if (divisionName.isBlank()) return null
 
         return GruppePageResult(
-            gruppeId     = selectedGruppe,
-            leagueName   = resolveLeague(doc, selectedBlockIndex, seasonYear),
+            gruppeId = selectedGruppe,
+            leagueName = resolveLeague(doc, selectedBlockIndex, seasonYear),
             divisionName = divisionName,
-            groupName    = groupName
+            groupName = groupName
         )
     }
 
@@ -71,11 +82,11 @@ class KnobParser {
         val doc       = Jsoup.parse(html)
         val standings = parseStandings(html)
         return ParsedDivisionPage(
-            teams           = parseTeams(doc),
-            players         = parsePlayers(doc),
-            matches         = parseMatches(doc),
-            standings       = standings.standings,
-            promotionSpots  = standings.promotionSpots,
+            teams = parseTeams(doc),
+            players = parsePlayers(doc),
+            matches = parseMatches(doc),
+            standings = standings.standings,
+            promotionSpots = standings.promotionSpots,
             relegationSpots = standings.relegationSpots
         )
     }
@@ -132,15 +143,15 @@ class KnobParser {
 
             standings.add(
                 ParsedStandingRow(
-                    position     = position,
-                    knobTeamId   = knobTeamId,
-                    played       = played,
-                    won          = won,
-                    drawn        = drawn,
-                    lost         = lost,
-                    gamesFor     = gamesFor,
+                    position = position,
+                    knobTeamId = knobTeamId,
+                    played = played,
+                    won = won,
+                    drawn = drawn,
+                    lost = lost,
+                    gamesFor = gamesFor,
                     gamesAgainst = gamesAgainst,
-                    points       = points
+                    points = points
                 )
             )
             position++
@@ -203,9 +214,9 @@ class KnobParser {
                     ?: return@mapNotNull null
 
                 ParsedPlayer(
-                    fullName   = playerLink.text().trim(),
-                    knobId     = knobId,
-                    klass      = cells[3].text().trim(),
+                    fullName = playerLink.text().trim(),
+                    knobId = knobId,
+                    klass = cells[3].text().trim(),
                     knobClubId = clubId,
                     knobTeamId = teamId
                 )
@@ -248,14 +259,14 @@ class KnobParser {
                 val (homeScore, awayScore, status) = parseScore(scoreText)
 
                 ParsedMatch(
-                    knobMatchId    = matchId,
-                    round          = round,
+                    knobMatchId = matchId,
+                    round = round,
                     homeKnobTeamId = homeTeamId,
                     awayKnobTeamId = awayTeamId,
-                    playedAt       = cells[1].text().trim().takeIf { it.isNotBlank() },
-                    homeScore      = homeScore,
-                    awayScore      = awayScore,
-                    status         = status
+                    playedAt = cells[1].text().trim().takeIf { it.isNotBlank() },
+                    homeScore = homeScore,
+                    awayScore = awayScore,
+                    status = status
                 )
             }
     }
@@ -313,16 +324,16 @@ class KnobParser {
 
             games.add(
                 ParsedGame(
-                    orderInMatch      = order++,
-                    gameType          = if (isDoubles) GameType.DOUBLES else GameType.SINGLES,
+                    orderInMatch = order++,
+                    gameType = if (isDoubles) GameType.DOUBLES else GameType.SINGLES,
                     homePlayer1KnobId = homePlayerGid,
                     homePlayer2KnobId = null,
                     awayPlayer1KnobId = awayPlayerGid,
                     awayPlayer2KnobId = null,
-                    homeSets          = homeSets,
-                    awaySets          = awaySets,
-                    result            = result,
-                    sets              = sets
+                    homeSets = homeSets,
+                    awaySets = awaySets,
+                    result = result,
+                    sets = sets
                 )
             )
         }
@@ -330,7 +341,7 @@ class KnobParser {
         return ParsedMatchDetail(matchId, games)
     }
 
-    private fun parseSetScores(cells: List<org.jsoup.nodes.Element>, fromIndex: Int, toIndex: Int): List<ParsedSet> {
+    private fun parseSetScores(cells: List<Element>, fromIndex: Int, toIndex: Int): List<ParsedSet> {
         val sets = mutableListOf<ParsedSet>()
         for (i in fromIndex..toIndex) {
             val text = cells.getOrNull(i)?.text()?.trim() ?: break

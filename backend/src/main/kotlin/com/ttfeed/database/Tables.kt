@@ -111,16 +111,20 @@ object Matches : Table("match") {
 
 object Games : Table("game") {
     val id            = uuid("id").autoGenerate()
-    val matchId       = uuid("match_id").references(Matches.id)
+    val matchId       = uuid("match_id").references(Matches.id).nullable()
+    val competitionName = varchar("competition_name", 255).nullable()
     val gameType      = varchar("game_type", 10)  // "singles" | "doubles"
     val orderInMatch  = short("order_in_match")   // 1..10
     val homePlayer1Id = uuid("home_player1_id").references(Players.id).nullable()
     val homePlayer2Id = uuid("home_player2_id").references(Players.id).nullable()  // doubles only
     val awayPlayer1Id = uuid("away_player1_id").references(Players.id).nullable()
     val awayPlayer2Id = uuid("away_player2_id").references(Players.id).nullable()  // doubles only
+    val homePlayer1EloDelta = double("home_player1_elo_delta").nullable()
+    val awayPlayer1EloDelta = double("away_player1_elo_delta").nullable()
     val homeSets      = short("home_sets").nullable()
     val awaySets      = short("away_sets").nullable()
     val result        = varchar("result", 10)      // "home" | "away" | "not_played"
+    val playedAt = timestampWithTimeZone("played_at").nullable()
     override val primaryKey = PrimaryKey(id)
 }
 

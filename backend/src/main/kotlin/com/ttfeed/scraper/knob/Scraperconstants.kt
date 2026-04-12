@@ -1,4 +1,4 @@
-package com.ttfeed.scraper
+package com.ttfeed.scraper.knob
 
 object MatchStatus {
     const val SCHEDULED = "scheduled"

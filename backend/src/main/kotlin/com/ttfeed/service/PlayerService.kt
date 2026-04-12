@@ -5,10 +5,7 @@ import com.ttfeed.model.PagedResponse
 import com.ttfeed.model.PlayerResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.jetbrains.exposed.sql.LikePattern
-import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.SortOrder
-import org.jetbrains.exposed.sql.lowerCase
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.*
 
@@ -81,17 +78,75 @@ object PlayerService {
         }
     }
 
+    suspend fun getAllLicensedPlayers(): List<Pair<UUID, String>> {
+        return withContext(Dispatchers.IO) {
+            transaction {
+                Players.select(Players.id, Players.licenceNr)
+                    .where { Players.licenceNr.isNotNull() and (Players.licenceNr notLike "knob:%") }
+                    .map { Pair(it[Players.id], it[Players.licenceNr]!!) }
+            }
+        }
+    }
+
+    suspend fun saveBaseElo(playerId: UUID, seasonId: UUID, eloValue: Int) {
+        withContext(Dispatchers.IO) {
+            transaction {
+                PlayerElos.insert {
+                    it[this.playerId] = playerId
+                    it[this.seasonId] = seasonId
+                    it[this.eloValue] = eloValue
+                    it[this.recordedAt] = java.time.OffsetDateTime.now(java.time.ZoneId.of("Europe/Zurich"))
+                }
+            }
+        }
+    }
+
+    suspend fun findPlayerIdByName(clickTtName: String): UUID? {
+        val parts = clickTtName.split(",")
+
+        // Baut aus "Nachname, Vorname" exakt "Nachname Vorname"
+        val expectedFullName = if (parts.size >= 2) {
+            val lastName = parts[0].trim()
+            val firstName = parts[1].trim()
+            "$lastName $firstName".lowercase()
+        } else {
+            clickTtName.trim().lowercase()
+        }
+
+        return withContext(Dispatchers.IO) {
+            transaction {
+                Players.select(Players.id)
+                    .where { Players.fullName.lowerCase() eq expectedFullName }
+                    .map { it[Players.id] }
+                    .firstOrNull()
+            }
+        }
+    }
+
+    suspend fun getLicenceNrById(playerId: UUID): String? {
+        return withContext(Dispatchers.IO) {
+            transaction {
+                Players.select(Players.licenceNr)
+                    .where { Players.id eq playerId }
+                    .map { it[Players.licenceNr] }
+                    .firstOrNull()
+            }
+        }
+    }
+
     // Centralized mapper to keep things consistent with your other services
     private fun ResultRow.toPlayerResponse(
         currentClubName: String? = null,
         klass: String? = null,
-        currentElo: Int? = null
+        currentElo: Int? = null,
+        isSyncing: Boolean = false
     ) = PlayerResponse(
         id              = this[Players.id].toString(),
         fullName        = this[Players.fullName],
         licenceNr       = this[Players.licenceNr],
         currentClubName = currentClubName,
         klass           = klass,
-        currentElo      = currentElo
+        currentElo      = currentElo,
+        isSyncing       = isSyncing
     )
 }

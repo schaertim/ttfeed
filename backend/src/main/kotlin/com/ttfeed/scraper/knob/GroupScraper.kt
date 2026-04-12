@@ -1,10 +1,10 @@
-package com.ttfeed.scraper
+package com.ttfeed.scraper.knob
 
 import com.ttfeed.database.*
-import com.ttfeed.scraper.model.ParsedMatch
-import com.ttfeed.scraper.model.ParsedPlayer
-import com.ttfeed.scraper.model.ParsedStandingRow
-import com.ttfeed.scraper.model.ParsedTeam
+import com.ttfeed.scraper.knob.model.ParsedMatch
+import com.ttfeed.scraper.knob.model.ParsedPlayer
+import com.ttfeed.scraper.knob.model.ParsedStandingRow
+import com.ttfeed.scraper.knob.model.ParsedTeam
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory

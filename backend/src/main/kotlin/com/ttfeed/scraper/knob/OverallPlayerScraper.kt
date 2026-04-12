@@ -1,4 +1,4 @@
-package com.ttfeed.scraper
+package com.ttfeed.scraper.knob
 
 import com.ttfeed.database.Players
 import com.ttfeed.database.Seasons

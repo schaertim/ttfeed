@@ -1,15 +1,15 @@
-package com.ttfeed.scraper
+package com.ttfeed.scraper.knob
 
 class BackfillScraper(client: KnobClient, parser: KnobParser) {
     private val groupScraper       = GroupScraper(client, parser)
     private val licenceScraper     = OverallPlayerScraper(client, parser)
-    private val gameDetailScraper  = MatchDetailScraper(client, parser)
+    private val matchDetailScraper  = MatchDetailScraper(client, parser)
 
     /** Full backfill: groups → licenses → game details */
     suspend fun run() {
         runGroupScraper()
         runLicenceScraper()
-        runGameDetailScraper()
+        runMatchDetailScraper()
     }
 
     /** Scrapes all group structure, teams, players and matches from knob.ch */
@@ -19,5 +19,5 @@ class BackfillScraper(client: KnobClient, parser: KnobParser) {
     suspend fun runLicenceScraper()    = licenceScraper.run()
 
     /** Scrapes individual game results for all completed matches */
-    suspend fun runGameDetailScraper() = gameDetailScraper.run()
+    suspend fun runMatchDetailScraper() = matchDetailScraper.run()
 }

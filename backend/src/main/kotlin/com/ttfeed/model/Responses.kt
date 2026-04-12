@@ -79,12 +79,15 @@ data class MatchDetailResponse(
 data class GameResponse(
     val id: String,
     val orderInMatch: Int,
+    val competitionName: String?,
     val gameType: String,
     val homePlayerName: String?,
     val awayPlayerName: String?,
     val homeSets: Int?,
     val awaySets: Int?,
     val result: String,
+    val homePlayer1EloDelta: Double? = null,
+    val awayPlayer1EloDelta: Double? = null,
     val sets: List<SetResponse>
 )
 
@@ -114,7 +117,8 @@ data class PlayerResponse(
     val licenceNr: String,
     val currentClubName: String? = null,
     val klass: String? = null,
-    val currentElo: Int? = null
+    val currentElo: Int? = null,
+    val isSyncing: Boolean = false
 )
 
 @Serializable

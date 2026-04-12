@@ -1,6 +1,7 @@
 package com.ttfeed.service
 
 import com.ttfeed.database.*
+import com.ttfeed.database.Games.awayPlayer1EloDelta
 import com.ttfeed.model.GameResponse
 import com.ttfeed.model.MatchDetailResponse
 import com.ttfeed.model.MatchResponse
@@ -73,12 +74,15 @@ object MatchService {
                     .select(
                         Games.id,
                         Games.orderInMatch,
+                        Games.competitionName,
                         Games.gameType,
                         Games.homeSets,
                         Games.awaySets,
                         Games.result,
                         homePlayer[Players.fullName],
-                        awayPlayer[Players.fullName]
+                        awayPlayer[Players.fullName],
+                        Games.homePlayer1EloDelta,
+                        Games.awayPlayer1EloDelta,
                     )
                     .where { Games.matchId eq uuid }
                     .orderBy(Games.orderInMatch to SortOrder.ASC)
@@ -107,12 +111,15 @@ object MatchService {
                     GameResponse(
                         id             = gameId.toString(),
                         orderInMatch   = gameRow[Games.orderInMatch].toInt(),
+                        competitionName = gameRow[Games.competitionName],
                         gameType       = gameRow[Games.gameType],
                         homePlayerName = gameRow[homePlayer[Players.fullName]] ?: "Unknown",
                         awayPlayerName = gameRow[awayPlayer[Players.fullName]] ?: "Unknown",
                         homeSets       = gameRow[Games.homeSets]?.toInt(),
                         awaySets       = gameRow[Games.awaySets]?.toInt(),
                         result         = gameRow[Games.result],
+                        homePlayer1EloDelta = gameRow[Games.homePlayer1EloDelta],
+                        awayPlayer1EloDelta = gameRow[awayPlayer1EloDelta],
                         sets           = sets
                     )
                 }
