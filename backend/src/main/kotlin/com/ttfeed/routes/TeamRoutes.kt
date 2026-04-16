@@ -8,21 +8,27 @@ import io.ktor.server.routing.*
 fun Route.teamRoutes() {
     route("/teams") {
         get("/{id}") {
-            val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
+            val id = call.parameters["id"]
+                ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing team id")
             val summary = TeamService.getTeamSummary(id)
-            if (summary != null) call.respond(summary) else call.respond(HttpStatusCode.NotFound)
+                ?: return@get call.respond(HttpStatusCode.NotFound, "Team not found")
+            call.respond(summary)
         }
 
         get("/{id}/roster") {
-            val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
+            val id = call.parameters["id"]
+                ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing team id")
             val roster = TeamService.getTeamRoster(id)
-            if (roster != null) call.respond(roster) else call.respond(HttpStatusCode.NotFound)
+                ?: return@get call.respond(HttpStatusCode.NotFound, "Team not found")
+            call.respond(roster)
         }
 
         get("/{id}/matches") {
-            val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
+            val id = call.parameters["id"]
+                ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing team id")
             val matches = TeamService.getTeamMatches(id)
-            if (matches != null) call.respond(matches) else call.respond(HttpStatusCode.NotFound)
+                ?: return@get call.respond(HttpStatusCode.NotFound, "Team not found")
+            call.respond(matches)
         }
     }
 }

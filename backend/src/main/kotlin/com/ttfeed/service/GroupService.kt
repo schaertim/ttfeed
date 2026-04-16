@@ -1,26 +1,21 @@
 package com.ttfeed.service
 
 import com.ttfeed.database.Groups
+import com.ttfeed.database.dbQuery
 import com.ttfeed.model.GroupResponse
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.ttfeed.util.toUuidOrNull
 import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.transactions.transaction
-import java.util.*
 
 object GroupService {
 
     suspend fun getById(groupId: String): GroupResponse? {
-        val uuid = runCatching { UUID.fromString(groupId) }.getOrNull() ?: return null
-
-        return withContext(Dispatchers.IO) {
-            transaction {
-                Groups
-                    .select(Groups.id, Groups.name, Groups.promotionSpots, Groups.relegationSpots)
-                    .where { Groups.id eq uuid }
-                    .firstOrNull()
-                    ?.toGroupResponse()
-            }
+        val uuid = groupId.toUuidOrNull() ?: return null
+        return dbQuery {
+            Groups
+                .select(Groups.id, Groups.name, Groups.promotionSpots, Groups.relegationSpots)
+                .where { Groups.id eq uuid }
+                .firstOrNull()
+                ?.toGroupResponse()
         }
     }
 

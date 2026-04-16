@@ -312,7 +312,7 @@ class KnobParser {
             val result = when {
                 homeSets != null && awaySets != null && homeSets > awaySets -> GameResult.HOME
                 homeSets != null && awaySets != null && awaySets > homeSets -> GameResult.AWAY
-                else                                                         -> GameResult.DRAW
+                else                                                         -> GameResult.NOT_PLAYED
             }
 
             games.add(

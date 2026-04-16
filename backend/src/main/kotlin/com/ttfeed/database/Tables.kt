@@ -54,7 +54,6 @@ object Standings : Table("standing") {
 object Clubs : Table("club") {
     val id        = uuid("id").autoGenerate()
     val name      = varchar("name", 100)
-    val knobId    = integer("knob_id").nullable().uniqueIndex()
     val clickttId = integer("clicktt_id").nullable().uniqueIndex()
     override val primaryKey = PrimaryKey(id)
 }

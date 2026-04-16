@@ -1,8 +1,12 @@
 package com.ttfeed.database
 
 import io.ktor.server.application.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.flywaydb.core.Flyway
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.Transaction
+import org.jetbrains.exposed.sql.transactions.transaction
 
 fun Application.configureDatabase() {
     val config = environment.config.config("database")
@@ -22,3 +26,10 @@ fun Application.configureDatabase() {
         password = password
     )
 }
+
+/**
+ * Runs a blocking Exposed transaction on the IO dispatcher.
+ * Use this instead of `withContext(Dispatchers.IO) { transaction { ... } }` everywhere.
+ */
+suspend fun <T> dbQuery(block: Transaction.() -> T): T =
+    withContext(Dispatchers.IO) { transaction { block() } }

@@ -39,7 +39,7 @@ class GroupScraper(
     }
 
     suspend fun run() {
-        // Ensure all leagues exist before any scraping begins
+        // Ensure all federations exist before scraping begins
         transaction {
             FEDERATION_RVIDS.keys.forEach { upsertFederation(it) }
         }
@@ -97,17 +97,17 @@ class GroupScraper(
                 val page = parser.parseDivisionPage(html)
 
                 transaction {
-                    val seasonId    = upsertSeason(season)
+                    val seasonId     = upsertSeason(season)
                     val federationId = upsertFederation(leagueName)
-                    val divisionId  = upsertDivision(result.divisionName, federationId, seasonId)
-                    val groupId     = upsertGroup(divisionId, result.groupName, gruppeId)
+                    val divisionId   = upsertDivision(result.divisionName, federationId, seasonId)
+                    val groupId      = upsertGroup(divisionId, result.groupName, gruppeId)
 
                     if (page.teams.isNotEmpty()) {
                         val teamIdMap = upsertTeams(page.teams, groupId)
                         upsertPlayerSeasons(page.players, teamIdMap, seasonId)
                         upsertMatches(page.matches, groupId, teamIdMap)
-                        upsertStandings(page.standings, groupId, teamIdMap)  // ADD THIS
-                        updateGroupZones(groupId, page.promotionSpots, page.relegationSpots)  // ADD THIS
+                        upsertStandings(page.standings, groupId, teamIdMap)
+                        updateGroupZones(groupId, page.promotionSpots, page.relegationSpots)
                     }
                 }
 
@@ -131,7 +131,7 @@ class GroupScraper(
     }
 
     // -------------------------------------------------------------------------
-    // DB upserts — all follow the same pattern: insertIgnore then select to get ID
+    // DB upserts — insert-ignore then select to get the ID
     // -------------------------------------------------------------------------
 
     private fun upsertSeason(name: String): UUID {
@@ -150,9 +150,9 @@ class GroupScraper(
 
     private fun upsertDivision(name: String, federationId: UUID, seasonId: UUID): UUID {
         Divisions.insertIgnore {
-            it[Divisions.name]          = name
-            it[Divisions.federationId]  = federationId
-            it[Divisions.seasonId]      = seasonId
+            it[Divisions.name]         = name
+            it[Divisions.federationId] = federationId
+            it[Divisions.seasonId]     = seasonId
         }
         return Divisions.select(Divisions.id).where {
             (Divisions.federationId eq federationId) and
@@ -181,36 +181,18 @@ class GroupScraper(
         for (standing in standings) {
             val teamId = teamIdMap[standing.knobTeamId] ?: continue
 
-            val exists = Standings.select(Standings.id)
-                .where { (Standings.groupId eq groupId) and (Standings.teamId eq teamId) }
-                .firstOrNull() != null
-
-            if (!exists) {
-                Standings.insert {
-                    it[Standings.groupId]      = groupId
-                    it[Standings.teamId]       = teamId
-                    it[Standings.position]     = standing.position.toShort()
-                    it[Standings.played]       = standing.played.toShort()
-                    it[Standings.won]          = standing.won.toShort()
-                    it[Standings.drawn]        = standing.drawn.toShort()
-                    it[Standings.lost]         = standing.lost.toShort()
-                    it[Standings.gamesFor]     = standing.gamesFor.toShort()
-                    it[Standings.gamesAgainst] = standing.gamesAgainst.toShort()
-                    it[Standings.points]       = standing.points.toShort()
-                }
-            } else {
-                Standings.update({
-                    (Standings.groupId eq groupId) and (Standings.teamId eq teamId)
-                }) {
-                    it[Standings.position]     = standing.position.toShort()
-                    it[Standings.played]       = standing.played.toShort()
-                    it[Standings.won]          = standing.won.toShort()
-                    it[Standings.drawn]        = standing.drawn.toShort()
-                    it[Standings.lost]         = standing.lost.toShort()
-                    it[Standings.gamesFor]     = standing.gamesFor.toShort()
-                    it[Standings.gamesAgainst] = standing.gamesAgainst.toShort()
-                    it[Standings.points]       = standing.points.toShort()
-                }
+            // Exposed upsert: insert, and on conflict (group_id, team_id) update all stats
+            Standings.upsert(Standings.groupId, Standings.teamId) {
+                it[Standings.groupId]      = groupId
+                it[Standings.teamId]       = teamId
+                it[Standings.position]     = standing.position.toShort()
+                it[Standings.played]       = standing.played.toShort()
+                it[Standings.won]          = standing.won.toShort()
+                it[Standings.drawn]        = standing.drawn.toShort()
+                it[Standings.lost]         = standing.lost.toShort()
+                it[Standings.gamesFor]     = standing.gamesFor.toShort()
+                it[Standings.gamesAgainst] = standing.gamesAgainst.toShort()
+                it[Standings.points]       = standing.points.toShort()
             }
         }
     }
@@ -226,22 +208,19 @@ class GroupScraper(
 
     private fun upsertTeams(teams: List<ParsedTeam>, groupId: UUID): Map<Int, UUID> {
         return teams.associate { team ->
-            // Safely strip ONLY trailing numbers, roman numerals, or single letters
-            // e.g., "Burgdorf 1" -> "Burgdorf", "Young Stars ZH" -> "Young Stars ZH"
+            // Strip only trailing numbers, roman numerals, or single letters from team names
+            // to derive the club name. e.g. "Burgdorf 1" → "Burgdorf", "Young Stars ZH" → "Young Stars ZH"
             val cleanClubName = team.name.replace(Regex("""\s+(\d+|[IVX]+|[a-zA-Z])$"""), "").trim()
 
+            // knob_id was removed from the club table in V2 — look up by name only
             Clubs.insertIgnore {
-                it[Clubs.name]   = cleanClubName
-                // We still save the knobId for history, but we don't rely on it being unique
-                it[Clubs.knobId] = team.knobClubId
+                it[Clubs.name] = cleanClubName
             }
-
-            // Fetch the club ID by its true NAME, not the unreliable knobId
             val clubId = Clubs.select(Clubs.id)
                 .where { Clubs.name eq cleanClubName }
                 .first()[Clubs.id]
 
-            // Team knobIds are only unique within a group — check by (knobId, groupId)
+            // Team knobIds are only unique within a group — scope lookup to (knobId, groupId)
             val existingTeamId = Teams.select(Teams.id)
                 .where { (Teams.knobId eq team.knobTeamId) and (Teams.groupId eq groupId) }
                 .firstOrNull()?.get(Teams.id)
@@ -292,7 +271,7 @@ class GroupScraper(
             val awayTeamId = teamIdMap[match.awayKnobTeamId] ?: continue
             val playedAt   = match.playedAt?.let { parseMatchDate(it) }
 
-            // Match knobIds are only unique within a group — check by (groupId, knobMatchId)
+            // Match knobIds are only unique within a group — scope lookup to (groupId, knobMatchId)
             val exists = Matches.select(Matches.id)
                 .where { (Matches.groupId eq groupId) and (Matches.knobMatchId eq match.knobMatchId) }
                 .firstOrNull() != null

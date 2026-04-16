@@ -7,7 +7,7 @@ import kotlin.math.round
 object EloCalculationService {
 
     fun calculateGameDeltas(homeBaseElo: Int, awayBaseElo: Int, result: GameResult): Pair<Double, Double> {
-        if (result == GameResult.DRAW) return Pair(0.0, 0.0)
+        if (result == GameResult.NOT_PLAYED) return Pair(0.0, 0.0)
 
         val pToWinHome = calculateProbability(homeBaseElo, awayBaseElo)
         val pToWinAway = calculateProbability(awayBaseElo, homeBaseElo)

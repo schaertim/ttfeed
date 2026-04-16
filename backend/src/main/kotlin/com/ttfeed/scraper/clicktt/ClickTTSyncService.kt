@@ -13,117 +13,92 @@ import java.time.format.DateTimeFormatter
 import java.util.*
 
 object ClickTTSyncService {
-    private val logger = LoggerFactory.getLogger(ClickTTSyncService::class.java)
-    private val client = ClickTTClient()
-    private val parser = ClickTTParser()
+    private val logger        = LoggerFactory.getLogger(ClickTTSyncService::class.java)
+    private val client        = ClickTTClient()
+    private val parser        = ClickTTParser()
     private val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
-    private val swissZone = ZoneId.of("Europe/Zurich")
+    private val swissZone     = ZoneId.of("Europe/Zurich")
 
+    /** Syncs ELO and game history for all licensed players. Run once per month. */
     suspend fun runMonthlySync(seasonId: UUID) {
         val players = PlayerService.getAllLicensedPlayers()
+        logger.info("Monthly sync starting — ${players.size} licensed players")
 
         for ((playerId, licence) in players) {
             try {
-                // ID direkt aus der Datenbank holen
-                val personId = PlayerService.getClickTtIdById(playerId)
-
-                if (personId != null) {
-                    // 1. Portrait laden
-                    val portraitHtml = client.fetchPlayerPortrait(personId)
-
-                    // 2. Link zum Elo-Protokoll suchen und laden
-                    val eloUrl = parser.extractEloProtokollUrl(portraitHtml)
-                    val eloHtml = if (eloUrl != null) client.fetchUrl(eloUrl) else null
-
-                    // 3. Beide Dokumente parsen
-                    val portrait = parser.parsePlayerPortrait(portraitHtml, eloHtml, personId)
-
-                    if (portrait.currentElo != null) {
-                        PlayerService.saveBaseElo(playerId, seasonId, portrait.currentElo)
-                    }
-
-                    if (portrait.games.isNotEmpty()) {
-                        processScrapedGames(playerId, portrait.games)
-                    }
-                } else {
-                    logger.warn("Skipping player $playerId (Licence: $licence) - No clickttId in database.")
-                }
+                syncPlayer(playerId, seasonId)
             } catch (e: Exception) {
-                logger.warn("Fetch failed for player $playerId: ${e.message}")
+                logger.warn("Sync failed for player $playerId (licence=$licence): ${e.message}")
             }
-
-            // Wichtig: Kurze Pause beim Massen-Sync
+            // Throttle bulk syncs to avoid hammering click-tt
             delay(500L)
         }
+
+        logger.info("Monthly sync complete")
     }
 
-    suspend fun syncSinglePlayer(playerId: UUID, seasonId: UUID) {
+    /** Syncs a single player on demand (e.g. triggered from the player detail endpoint). */
+    suspend fun syncPlayer(playerId: UUID, seasonId: UUID) {
         val personId = PlayerService.getClickTtIdById(playerId)
-
         if (personId == null) {
-            logger.warn("Cannot sync player $playerId. No clickttId found in database.")
+            logger.warn("Cannot sync player $playerId — no clickttId in database")
             return
         }
 
-        try {
-            logger.info("1. Fetching portrait HTML for clickttId: $personId")
-            val portraitHtml = client.fetchPlayerPortrait(personId)
+        val portraitHtml = client.fetchPlayerPortrait(personId)
 
-            // Hier holt er sich jetzt den echten /cgi-bin/.../eloFilter Link!
-            val rawEloUrl = parser.extractEloProtokollUrl(portraitHtml)
+        val eloUrl = parser.extractEloProtokollUrl(portraitHtml)
+            ?.cleanWosid()
+            ?.takeIf { it.isNotBlank() && it != "#" }
 
-            // Zur Sicherheit die WebObjects-Session aus dem String entfernen
-            val eloUrl = rawEloUrl?.replace(Regex("([?&])wosid=[^&]+&?"), "$1")
-                ?.removeSuffix("?")
-                ?.removeSuffix("&")
+        val eloHtml = if (eloUrl != null) {
+            client.fetchUrl(eloUrl)
+        } else {
+            logger.debug("No Elo-Protokoll tab found for personId=$personId — games will be empty")
+            null
+        }
 
-            val eloHtml = if (eloUrl != null && eloUrl != "#") {
-                logger.info("1b. Found Elo-Protokoll tab. Cleaned URL: $eloUrl")
-                client.fetchUrl(eloUrl)
-            } else {
-                logger.warn("1b. No Elo-Protokoll tab found (or URL is dummy)! Games will be empty.")
-                null
-            }
+        val portrait = parser.parsePlayerPortrait(portraitHtml, eloHtml, personId)
+        logger.debug("Parsed profile for personId=$personId — elo=${portrait.currentElo}, games=${portrait.games.size}")
 
-            val portrait = parser.parsePlayerPortrait(portraitHtml, eloHtml, personId)
-            logger.info("2. Parsed profile. currentElo=${portrait.currentElo}, found ${portrait.games.size} games.")
+        if (portrait.currentElo != null) {
+            PlayerService.saveBaseElo(playerId, seasonId, portrait.currentElo)
+        }
 
-            if (portrait.currentElo != null) {
-                PlayerService.saveBaseElo(playerId, seasonId, portrait.currentElo)
-            }
-
-            if (portrait.games.isNotEmpty()) {
-                processScrapedGames(playerId, portrait.games)
-            }
-        } catch (e: Exception) {
-            logger.error("Single fetch failed for personId $personId", e)
-            throw e
+        if (portrait.games.isNotEmpty()) {
+            processGames(playerId, portrait.games)
         }
     }
 
-    private suspend fun processScrapedGames(playerId: UUID, games: List<ClickTTGame>) {
+    private suspend fun processGames(playerId: UUID, games: List<ClickTTGame>) {
         for (game in games) {
-            val cleanOpponentName = game.opponent.substringBefore("(").trim()
-            val opponentId = PlayerService.findPlayerIdByName(cleanOpponentName)
-            val result = if (game.isWin) GameResult.HOME else GameResult.AWAY
+            val opponentName = game.opponent.substringBefore("(").trim()
+            val opponentId   = PlayerService.findPlayerIdByName(opponentName)
+            val result       = if (game.isWin) GameResult.HOME else GameResult.AWAY
 
             val playedAt = LocalDate.parse(game.date, dateFormatter)
                 .atStartOfDay(swissZone)
                 .toOffsetDateTime()
 
-            val exists = GameService.gameExists(playerId, playedAt, game.competition)
-
-            if (!exists) {
+            if (!GameService.gameExists(playerId, playedAt, game.competition)) {
                 GameService.insertTournamentGame(
-                    playerId = playerId,
-                    opponentId = opponentId,
-                    playedAt = playedAt,
+                    playerId    = playerId,
+                    opponentId  = opponentId,
+                    playedAt    = playedAt,
                     competition = game.competition,
-                    eloDelta = game.eloDelta,
-                    result = result,
-                    gameType = GameType.SINGLES
+                    eloDelta    = game.eloDelta,
+                    result      = result,
+                    gameType    = GameType.SINGLES
                 )
             }
         }
     }
+
+    /**
+     * Removes the WebObjects session ID from click-tt URLs.
+     * The wosid parameter is session-specific and causes requests to fail when reused.
+     */
+    private fun String.cleanWosid(): String =
+        replace(Regex("([?&])wosid=[^&]+&?"), "$1")
+            .trimEnd('?', '&')
 }
