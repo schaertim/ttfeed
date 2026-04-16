@@ -5,10 +5,8 @@ import com.ttfeed.model.GameResult
 import com.ttfeed.model.MatchResponse
 import com.ttfeed.model.TeamPlayerResponse
 import com.ttfeed.model.TeamSummaryResponse
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.ttfeed.util.toUuidOrNull
 import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.transactions.transaction
 import java.util.*
 
 object TeamService {
@@ -16,86 +14,78 @@ object TeamService {
     private val awayTeam = Teams.alias("away_team")
 
     suspend fun getTeamSummary(teamId: String): TeamSummaryResponse? {
-        val uuid = runCatching { UUID.fromString(teamId) }.getOrNull() ?: return null
-        return withContext(Dispatchers.IO) {
-            transaction {
-                val teamRow = Teams.selectAll().where { Teams.id eq uuid }.singleOrNull() ?: return@transaction null
+        val uuid = teamId.toUuidOrNull() ?: return null
+        return dbQuery {
+            val teamRow = Teams.selectAll().where { Teams.id eq uuid }.singleOrNull()
+                ?: return@dbQuery null
 
-                val standing = Standings.selectAll().where { Standings.teamId eq uuid }.singleOrNull()
-                val record = "${standing?.get(Standings.won) ?: 0}-${standing?.get(Standings.drawn) ?: 0}-${standing?.get(Standings.lost) ?: 0}"
-                val points = standing?.get(Standings.points)?.toInt() ?: 0
+            val standing = Standings.selectAll().where { Standings.teamId eq uuid }.singleOrNull()
+            val record   = "${standing?.get(Standings.won) ?: 0}-${standing?.get(Standings.drawn) ?: 0}-${standing?.get(Standings.lost) ?: 0}"
+            val points   = standing?.get(Standings.points)?.toInt() ?: 0
 
-                val matchHistory = Matches.selectAll()
-                    .where { (Matches.homeTeamId eq uuid) or (Matches.awayTeamId eq uuid) }
-                    .orderBy(Matches.playedAt to SortOrder.DESC)
-                    .limit(5)
-                    .map { it.toMatchResult(uuid) }
+            val matchHistory = Matches.selectAll()
+                .where { (Matches.homeTeamId eq uuid) or (Matches.awayTeamId eq uuid) }
+                .orderBy(Matches.playedAt to SortOrder.DESC)
+                .limit(5)
+                .map { it.toMatchResult(uuid) }
 
-                TeamSummaryResponse(
-                    id = teamRow[Teams.id].toString(),
-                    name = teamRow[Teams.name],
-                    record = record,
-                    points = points,
-                    streak = calculateStreak(matchHistory)
-                )
-            }
+            TeamSummaryResponse(
+                id      = teamRow[Teams.id].toString(),
+                name    = teamRow[Teams.name],
+                record  = record,
+                points  = points,
+                streak  = calculateStreak(matchHistory)
+            )
         }
     }
 
     suspend fun getTeamRoster(teamId: String): List<TeamPlayerResponse>? {
-        val uuid = runCatching { UUID.fromString(teamId) }.getOrNull() ?: return null
-        return withContext(Dispatchers.IO) {
-            transaction {
-                // Ensure team exists
-                if (Teams.selectAll().where { Teams.id eq uuid }.empty()) return@transaction null
+        val uuid = teamId.toUuidOrNull() ?: return null
+        return dbQuery {
+            if (Teams.selectAll().where { Teams.id eq uuid }.empty()) return@dbQuery null
 
-                (Players innerJoin PlayerSeasons)
-                    .selectAll()
-                    .where { PlayerSeasons.teamId eq uuid }
-                    .map { playerRow ->
-                        val pId = playerRow[Players.id]
+            (Players innerJoin PlayerSeasons)
+                .selectAll()
+                .where { PlayerSeasons.teamId eq uuid }
+                .map { playerRow ->
+                    val pId = playerRow[Players.id]
 
-                        // Count wins/losses for this specific player
-                        val wins = Games.selectAll().where {
-                            ((Games.homePlayer1Id eq pId) and (Games.result eq GameResult.HOME)) or
-                                    ((Games.awayPlayer1Id eq pId) and (Games.result eq GameResult.AWAY))
-                        }.count().toInt()
+                    val wins = Games.selectAll().where {
+                        ((Games.homePlayer1Id eq pId) and (Games.result eq GameResult.HOME)) or
+                                ((Games.awayPlayer1Id eq pId) and (Games.result eq GameResult.AWAY))
+                    }.count().toInt()
 
-                        val losses = Games.selectAll().where {
-                            ((Games.homePlayer1Id eq pId) and (Games.result eq GameResult.AWAY)) or
-                                    ((Games.awayPlayer1Id eq pId) and (Games.result eq GameResult.HOME))
-                        }.count().toInt()
+                    val losses = Games.selectAll().where {
+                        ((Games.homePlayer1Id eq pId) and (Games.result eq GameResult.AWAY)) or
+                                ((Games.awayPlayer1Id eq pId) and (Games.result eq GameResult.HOME))
+                    }.count().toInt()
 
-                        TeamPlayerResponse(
-                            id = pId.toString(),
-                            fullName = playerRow[Players.fullName],
-                            licenceNr = playerRow[Players.licenceNr],
-                            wins = wins,
-                            losses = losses
-                        )
-                    }
-            }
+                    TeamPlayerResponse(
+                        id        = pId.toString(),
+                        fullName  = playerRow[Players.fullName],
+                        licenceNr = playerRow[Players.licenceNr],
+                        wins      = wins,
+                        losses    = losses
+                    )
+                }
         }
     }
 
     suspend fun getTeamMatches(teamId: String): List<MatchResponse>? {
-        val uuid = runCatching { UUID.fromString(teamId) }.getOrNull() ?: return null
-        return withContext(Dispatchers.IO) {
-            transaction {
-                if (Teams.selectAll().where { Teams.id eq uuid }.empty()) return@transaction null
+        val uuid = teamId.toUuidOrNull() ?: return null
+        return dbQuery {
+            if (Teams.selectAll().where { Teams.id eq uuid }.empty()) return@dbQuery null
 
-                Matches
-                    .join(homeTeam, JoinType.INNER, Matches.homeTeamId, homeTeam[Teams.id])
-                    .join(awayTeam, JoinType.INNER, Matches.awayTeamId, awayTeam[Teams.id])
-                    .selectAll()
-                    .where { (Matches.homeTeamId eq uuid) or (Matches.awayTeamId eq uuid) }
-                    .orderBy(Matches.playedAt to SortOrder.ASC)
-                    .map { it.toMatchResponse() }
-            }
+            Matches
+                .join(homeTeam, JoinType.INNER, Matches.homeTeamId, homeTeam[Teams.id])
+                .join(awayTeam, JoinType.INNER, Matches.awayTeamId, awayTeam[Teams.id])
+                .selectAll()
+                .where { (Matches.homeTeamId eq uuid) or (Matches.awayTeamId eq uuid) }
+                .orderBy(Matches.playedAt to SortOrder.ASC)
+                .map { it.toMatchResponse() }
         }
     }
 
-    // Helpers
     private fun calculateStreak(results: List<String>): String {
         if (results.isEmpty()) return "-"
         val first = results.first()
@@ -114,13 +104,13 @@ object TeamService {
     }
 
     private fun ResultRow.toMatchResponse() = MatchResponse(
-        id = this[Matches.id].toString(),
-        homeTeam = this[homeTeam[Teams.name]],
-        awayTeam = this[awayTeam[Teams.name]],
+        id        = this[Matches.id].toString(),
+        homeTeam  = this[homeTeam[Teams.name]],
+        awayTeam  = this[awayTeam[Teams.name]],
         homeScore = this[Matches.homeScore]?.toInt(),
         awayScore = this[Matches.awayScore]?.toInt(),
-        round = this[Matches.round],
-        playedAt = this[Matches.playedAt]?.toString(),
-        status = this[Matches.status]
+        round     = this[Matches.round],
+        playedAt  = this[Matches.playedAt]?.toString(),
+        status    = this[Matches.status]
     )
 }

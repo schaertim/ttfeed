@@ -8,13 +8,13 @@ enum class GameType {
 enum class GameResult {
     HOME,
     AWAY,
-    DRAW
+    NOT_PLAYED  // Game position exists but was not played (forfeit, or result not yet scraped)
 }
 
 enum class MatchStatus {
-    SCHEDULED, // Geplant, noch nicht gespielt
-    COMPLETED,  // Gespielt und gewertet
-    WALKOVER   // Forfait (W.O.)
+    SCHEDULED,
+    COMPLETED,
+    WALKOVER
 }
 
 enum class GenderCategory {

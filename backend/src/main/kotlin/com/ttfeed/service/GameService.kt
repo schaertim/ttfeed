@@ -1,48 +1,21 @@
 package com.ttfeed.service
 
 import com.ttfeed.database.Games
+import com.ttfeed.database.dbQuery
 import com.ttfeed.model.GameResult
 import com.ttfeed.model.GameType
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.insert
-import org.jetbrains.exposed.sql.transactions.transaction
 import java.time.OffsetDateTime
-import java.time.ZoneId
 import java.util.*
 
 object GameService {
 
-    suspend fun gameExists(playerId: UUID, playedAt: OffsetDateTime, competition: String): Boolean {
-        return withContext(Dispatchers.IO) {
-            transaction {
-                Games.select(Games.id)
-                    .where {
-                        (Games.homePlayer1Id eq playerId) and
-                                (Games.playedAt eq playedAt) and
-                                (Games.competitionName eq competition)
-                    }.count() > 0
-            }
-        }
-    }
-
-    suspend fun getPendingKnobMatches(): List<String> {
-        return withContext(Dispatchers.IO) {
-            transaction {
-                val now = OffsetDateTime.now(ZoneId.of("Europe/Zurich"))
-                val twoWeeksAgo = now.minusDays(14)
-
-                Games.select(Games.matchId)
-                    .where {
-                        (Games.matchId.isNotNull()) and
-                                (Games.result.isNull()) and
-                                (Games.playedAt less now) and
-                                (Games.playedAt greaterEq twoWeeksAgo)
-                    }
-                    .map { it[Games.matchId]!!.toString() }
-            }
-        }
+    suspend fun gameExists(playerId: UUID, playedAt: OffsetDateTime, competition: String): Boolean = dbQuery {
+        Games.select(Games.id)
+            .where {
+                (Games.homePlayer1Id eq playerId) and
+                        (Games.playedAt eq playedAt) and
+                        (Games.competitionName eq competition)
+            }.count() > 0
     }
 
     suspend fun insertTournamentGame(
@@ -53,21 +26,17 @@ object GameService {
         eloDelta: Double?,
         result: GameResult,
         gameType: GameType = GameType.SINGLES
-    ) {
-        withContext(Dispatchers.IO) {
-            transaction {
-                Games.insert {
-                    it[this.matchId] = null
-                    it[this.homePlayer1Id] = playerId
-                    it[this.awayPlayer1Id] = opponentId
-                    it[this.playedAt] = playedAt
-                    it[this.competitionName] = competition
-                    it[this.homePlayer1EloDelta] = eloDelta
-                    it[this.awayPlayer1EloDelta] = eloDelta?.let { delta -> -delta }
-                    it[this.result] = result
-                    it[this.gameType] = gameType
-                }
-            }
+    ) = dbQuery {
+        Games.insert {
+            it[Games.matchId]             = null
+            it[Games.homePlayer1Id]       = playerId
+            it[Games.awayPlayer1Id]       = opponentId
+            it[Games.playedAt]            = playedAt
+            it[Games.competitionName]     = competition
+            it[Games.homePlayer1EloDelta] = eloDelta
+            it[Games.awayPlayer1EloDelta] = eloDelta?.let { delta -> -delta }
+            it[Games.result]              = result
+            it[Games.gameType]            = gameType
         }
     }
 }
