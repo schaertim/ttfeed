@@ -1,6 +1,7 @@
 package com.ttfeed.scraper.knob
 
 import com.ttfeed.database.*
+import com.ttfeed.model.MatchStatus
 import com.ttfeed.scraper.knob.model.ParsedMatch
 import com.ttfeed.scraper.knob.model.ParsedPlayer
 import com.ttfeed.scraper.knob.model.ParsedStandingRow

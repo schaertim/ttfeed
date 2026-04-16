@@ -1,5 +1,8 @@
 package com.ttfeed.database
 
+import com.ttfeed.model.GameResult
+import com.ttfeed.model.GameType
+import com.ttfeed.model.MatchStatus
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.kotlin.datetime.timestampWithTimeZone
 
@@ -105,7 +108,7 @@ object Matches : Table("match") {
     val awayScore   = short("away_score").nullable()
     // knobMatchId is NOT globally unique — match IDs are reused across seasons, unique only within a group
     val knobMatchId = integer("knob_match_id").nullable()
-    val status      = varchar("status", 20)
+    val status = enumerationByName("status", 20, MatchStatus::class)
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -113,8 +116,8 @@ object Games : Table("game") {
     val id            = uuid("id").autoGenerate()
     val matchId       = uuid("match_id").references(Matches.id).nullable()
     val competitionName = varchar("competition_name", 255).nullable()
-    val gameType      = varchar("game_type", 10)  // "singles" | "doubles"
-    val orderInMatch  = short("order_in_match")   // 1..10
+    val gameType = enumerationByName("game_type", 20, GameType::class)
+    val orderInMatch  = short("order_in_match").nullable()
     val homePlayer1Id = uuid("home_player1_id").references(Players.id).nullable()
     val homePlayer2Id = uuid("home_player2_id").references(Players.id).nullable()  // doubles only
     val awayPlayer1Id = uuid("away_player1_id").references(Players.id).nullable()
@@ -123,7 +126,7 @@ object Games : Table("game") {
     val awayPlayer1EloDelta = double("away_player1_elo_delta").nullable()
     val homeSets      = short("home_sets").nullable()
     val awaySets      = short("away_sets").nullable()
-    val result        = varchar("result", 10)      // "home" | "away" | "not_played"
+    val result = enumerationByName("result", 20, GameResult::class)
     val playedAt = timestampWithTimeZone("played_at").nullable()
     override val primaryKey = PrimaryKey(id)
 }

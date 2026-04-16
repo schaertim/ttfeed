@@ -58,8 +58,8 @@ data class MatchResponse(
     val homeScore: Int?,
     val awayScore: Int?,
     val round: String?,
+    val status: MatchStatus,
     val playedAt: String?,
-    val status: String,
 )
 
 @Serializable
@@ -71,21 +71,21 @@ data class MatchDetailResponse(
     val awayScore: Int?,
     val round: String?,
     val playedAt: String?,
-    val status: String,
+    val status: MatchStatus,
     val games: List<GameResponse>
 )
 
 @Serializable
 data class GameResponse(
     val id: String,
-    val orderInMatch: Int,
+    val orderInMatch: Int?,
     val competitionName: String?,
-    val gameType: String,
+    val gameType: GameType,
     val homePlayerName: String?,
     val awayPlayerName: String?,
     val homeSets: Int?,
     val awaySets: Int?,
-    val result: String,
+    val result: GameResult,
     val homePlayer1EloDelta: Double? = null,
     val awayPlayer1EloDelta: Double? = null,
     val sets: List<SetResponse>

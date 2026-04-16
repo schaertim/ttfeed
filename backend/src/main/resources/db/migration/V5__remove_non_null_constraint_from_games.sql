@@ -1,0 +1,1 @@
+ALTER TABLE game ALTER COLUMN order_in_match DROP NOT NULL;

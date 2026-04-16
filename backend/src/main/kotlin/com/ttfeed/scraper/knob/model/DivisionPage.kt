@@ -1,5 +1,7 @@
 package com.ttfeed.scraper.knob.model
 
+import com.ttfeed.model.MatchStatus
+
 data class ParsedTeam(
     val name: String,
     val knobClubId: Int,
@@ -22,7 +24,7 @@ data class ParsedMatch(
     val playedAt: String?,
     val homeScore: Int?,
     val awayScore: Int?,
-    val status: String
+    val status: MatchStatus
 )
 
 data class ParsedDivisionPage(

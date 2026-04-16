@@ -110,7 +110,7 @@ object MatchService {
 
                     GameResponse(
                         id             = gameId.toString(),
-                        orderInMatch   = gameRow[Games.orderInMatch].toInt(),
+                        orderInMatch   = gameRow[Games.orderInMatch]?.toInt(),
                         competitionName = gameRow[Games.competitionName],
                         gameType       = gameRow[Games.gameType],
                         homePlayerName = gameRow[homePlayer[Players.fullName]] ?: "Unknown",

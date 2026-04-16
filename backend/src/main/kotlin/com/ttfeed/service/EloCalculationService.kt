@@ -1,13 +1,13 @@
 package com.ttfeed.service
 
-import com.ttfeed.scraper.knob.GameResult
+import com.ttfeed.model.GameResult
 import kotlin.math.pow
 import kotlin.math.round
 
 object EloCalculationService {
 
-    fun calculateGameDeltas(homeBaseElo: Int, awayBaseElo: Int, result: String): Pair<Double, Double> {
-        if (result == GameResult.NOT_PLAYED) return Pair(0.0, 0.0)
+    fun calculateGameDeltas(homeBaseElo: Int, awayBaseElo: Int, result: GameResult): Pair<Double, Double> {
+        if (result == GameResult.DRAW) return Pair(0.0, 0.0)
 
         val pToWinHome = calculateProbability(homeBaseElo, awayBaseElo)
         val pToWinAway = calculateProbability(awayBaseElo, homeBaseElo)

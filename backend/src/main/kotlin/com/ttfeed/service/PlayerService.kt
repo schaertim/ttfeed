@@ -134,7 +134,45 @@ object PlayerService {
         }
     }
 
-    // Centralized mapper to keep things consistent with your other services
+    suspend fun getPlayersMissingClickTtId(): List<Pair<UUID, String>> {
+        return withContext(Dispatchers.IO) {
+            transaction {
+                Players.select(Players.id, Players.licenceNr)
+                    .where {
+                        (Players.clickttId.isNull()) and
+                                (Players.licenceNr notLike "knob:%") // Keine Knob-Dummys
+                    }
+                    .map { it[Players.id] to it[Players.licenceNr] }
+            }
+        }
+    }
+
+    suspend fun updateClickTtIdsBatch(mappings: Map<String, Int>) {
+        if (mappings.isEmpty()) return
+
+        withContext(Dispatchers.IO) {
+            transaction {
+                // Wir iterieren über unsere gefundenen Paare und updaten die DB
+                for ((licence, personId) in mappings) {
+                    Players.update({ Players.licenceNr eq licence }) {
+                        it[this.clickttId] = personId
+                    }
+                }
+            }
+        }
+    }
+
+    suspend fun getClickTtIdById(playerId: UUID): Int? {
+        return withContext(Dispatchers.IO) {
+            transaction {
+                Players.select(Players.clickttId)
+                    .where { Players.id eq playerId }
+                    .map { it[Players.clickttId] }
+                    .firstOrNull()
+            }
+        }
+    }
+
     private fun ResultRow.toPlayerResponse(
         currentClubName: String? = null,
         klass: String? = null,

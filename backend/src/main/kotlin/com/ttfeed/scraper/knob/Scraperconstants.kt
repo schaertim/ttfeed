@@ -1,21 +1,5 @@
 package com.ttfeed.scraper.knob
 
-object MatchStatus {
-    const val SCHEDULED = "scheduled"
-    const val COMPLETED = "completed"
-}
-
-object GameType {
-    const val SINGLES = "singles"
-    const val DOUBLES = "doubles"
-}
-
-object GameResult {
-    const val HOME       = "home"
-    const val AWAY       = "away"
-    const val NOT_PLAYED = "not_played"
-}
-
 /** Prefix used as a placeholder licence number until a real STT licence is scraped. */
 const val PLACEHOLDER_LICENCE_PREFIX = "knob:"
 

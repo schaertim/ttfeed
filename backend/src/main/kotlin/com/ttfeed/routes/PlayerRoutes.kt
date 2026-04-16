@@ -34,12 +34,18 @@ fun Route.playerRoutes() {
             val shouldSync = !player.licenceNr.startsWith("knob:")
 
             if (shouldSync) {
+                // Wichtig: Die Zeile hier drunter testet, ob wir VOR der Coroutine sind
+                application.environment.log.info("Triggering background coroutine for player: $id")
+
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
+                        application.environment.log.info("Coroutine started. Fetching season ID...")
                         val currentSeasonId = SeasonService.getCurrentSeasonId()
 
                         if (currentSeasonId != null) {
+                            application.environment.log.info("Season found ($currentSeasonId). Starting click-tt scraper...")
                             ClickTTSyncService.syncSinglePlayer(UUID.fromString(id), currentSeasonId)
+                            application.environment.log.info("Scraper finished successfully for $id!")
                         } else {
                             application.environment.log.warn("Could not sync player $id: No active season found.")
                         }

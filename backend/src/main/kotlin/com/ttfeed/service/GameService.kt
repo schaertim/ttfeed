@@ -1,6 +1,8 @@
 package com.ttfeed.service
 
 import com.ttfeed.database.Games
+import com.ttfeed.model.GameResult
+import com.ttfeed.model.GameType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jetbrains.exposed.sql.and
@@ -49,7 +51,8 @@ object GameService {
         playedAt: OffsetDateTime,
         competition: String,
         eloDelta: Double?,
-        result: String
+        result: GameResult,
+        gameType: GameType = GameType.SINGLES
     ) {
         withContext(Dispatchers.IO) {
             transaction {
@@ -62,6 +65,7 @@ object GameService {
                     it[this.homePlayer1EloDelta] = eloDelta
                     it[this.awayPlayer1EloDelta] = eloDelta?.let { delta -> -delta }
                     it[this.result] = result
+                    it[this.gameType] = gameType
                 }
             }
         }

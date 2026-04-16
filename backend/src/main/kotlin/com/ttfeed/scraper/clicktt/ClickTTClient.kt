@@ -2,6 +2,7 @@ package com.ttfeed.scraper.clicktt
 
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.cookies.* // Optional, aber gut zu behalten
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import kotlinx.coroutines.delay
@@ -12,15 +13,9 @@ class ClickTTClient {
     private val logger = LoggerFactory.getLogger(ClickTTClient::class.java)
 
     private val client = HttpClient(CIO) {
+        install(HttpCookies)
         followRedirects = true
-        engine {
-            requestTimeout = 30_000
-        }
-    }
-
-    suspend fun searchPlayerByLicence(licence: String): String {
-        val url = "$baseUrl/playerSearch?federation=STT&searchType=lizenz&searchString=$licence"
-        return fetchWithRetry(url)
+        engine { requestTimeout = 30_000 }
     }
 
     suspend fun fetchPlayerPortrait(personId: Int, season: String? = null): String {
@@ -31,10 +26,19 @@ class ClickTTClient {
         return fetchWithRetry(url)
     }
 
+    suspend fun fetchUrl(relativeOrAbsoluteUrl: String): String {
+        val fullUrl = if (relativeOrAbsoluteUrl.startsWith("http")) relativeOrAbsoluteUrl else "https://www.click-tt.ch$relativeOrAbsoluteUrl"
+        return fetchWithRetry(fullUrl)
+    }
+
+    suspend fun fetchClubMembersPage(clubId: Int): String {
+        val url = "$baseUrl/clubLicenceMembersPage?club=$clubId"
+        return fetchWithRetry(url)
+    }
+
     private suspend fun fetchWithRetry(url: String, maxAttempts: Int = 3): String {
         delay(100)
         var lastException: Exception? = null
-
         repeat(maxAttempts) { attempt ->
             try {
                 return client.get(url).bodyAsText(Charsets.UTF_8)

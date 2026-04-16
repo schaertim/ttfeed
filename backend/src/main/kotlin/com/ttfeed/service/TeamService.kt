@@ -1,6 +1,7 @@
 package com.ttfeed.service
 
 import com.ttfeed.database.*
+import com.ttfeed.model.GameResult
 import com.ttfeed.model.MatchResponse
 import com.ttfeed.model.TeamPlayerResponse
 import com.ttfeed.model.TeamSummaryResponse
@@ -56,13 +57,13 @@ object TeamService {
 
                         // Count wins/losses for this specific player
                         val wins = Games.selectAll().where {
-                            ((Games.homePlayer1Id eq pId) and (Games.result eq "home")) or
-                                    ((Games.awayPlayer1Id eq pId) and (Games.result eq "away"))
+                            ((Games.homePlayer1Id eq pId) and (Games.result eq GameResult.HOME)) or
+                                    ((Games.awayPlayer1Id eq pId) and (Games.result eq GameResult.AWAY))
                         }.count().toInt()
 
                         val losses = Games.selectAll().where {
-                            ((Games.homePlayer1Id eq pId) and (Games.result eq "away")) or
-                                    ((Games.awayPlayer1Id eq pId) and (Games.result eq "home"))
+                            ((Games.homePlayer1Id eq pId) and (Games.result eq GameResult.AWAY)) or
+                                    ((Games.awayPlayer1Id eq pId) and (Games.result eq GameResult.HOME))
                         }.count().toInt()
 
                         TeamPlayerResponse(

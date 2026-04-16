@@ -1,16 +1,9 @@
 package com.ttfeed.scraper.knob
 
-import com.ttfeed.scraper.knob.model.GruppePageResult
-import com.ttfeed.scraper.knob.model.ParsedDivisionPage
-import com.ttfeed.scraper.knob.model.ParsedGame
-import com.ttfeed.scraper.knob.model.ParsedLicensedPlayer
-import com.ttfeed.scraper.knob.model.ParsedMatch
-import com.ttfeed.scraper.knob.model.ParsedMatchDetail
-import com.ttfeed.scraper.knob.model.ParsedPlayer
-import com.ttfeed.scraper.knob.model.ParsedSet
-import com.ttfeed.scraper.knob.model.ParsedStandingRow
-import com.ttfeed.scraper.knob.model.ParsedStandingsPage
-import com.ttfeed.scraper.knob.model.ParsedTeam
+import com.ttfeed.model.GameResult
+import com.ttfeed.model.GameType
+import com.ttfeed.model.MatchStatus
+import com.ttfeed.scraper.knob.model.*
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -271,15 +264,15 @@ class KnobParser {
             }
     }
 
-    private fun parseScore(scoreText: String?): Triple<Int?, Int?, String> {
+    private fun parseScore(scoreText: String?): Triple<Int?, Int?, MatchStatus> {
         if (scoreText == null || !scoreText.contains(":")) {
-            return Triple(null, null, "scheduled")
+            return Triple(null, null, MatchStatus.SCHEDULED)
         }
         val parts = scoreText.split(":")
         val home  = parts[0].toIntOrNull()
         val away  = parts[1].toIntOrNull()
-        return if (home != null && away != null) Triple(home, away, "completed")
-        else Triple(null, null, "scheduled")
+        return if (home != null && away != null) Triple(home, away, MatchStatus.COMPLETED)
+        else Triple(null, null, MatchStatus.COMPLETED)
     }
 
     // -------------------------------------------------------------------------
@@ -319,7 +312,7 @@ class KnobParser {
             val result = when {
                 homeSets != null && awaySets != null && homeSets > awaySets -> GameResult.HOME
                 homeSets != null && awaySets != null && awaySets > homeSets -> GameResult.AWAY
-                else                                                         -> GameResult.NOT_PLAYED
+                else                                                         -> GameResult.DRAW
             }
 
             games.add(

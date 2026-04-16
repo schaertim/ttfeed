@@ -1,6 +1,7 @@
 package com.ttfeed.scraper.knob
 
 import com.ttfeed.database.*
+import com.ttfeed.model.MatchStatus
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insertIgnore
 import org.jetbrains.exposed.sql.transactions.transaction
