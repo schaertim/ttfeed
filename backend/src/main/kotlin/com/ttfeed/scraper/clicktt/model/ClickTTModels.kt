@@ -14,3 +14,14 @@ data class ClickTTPlayerPortrait(
     val currentElo: Int?,
     val games: List<ClickTTGame>
 )
+
+data class ClickTTClubMember(
+    val licence: String,
+    val personId: Int,
+    val fullName: String
+)
+
+data class ClickTTClubPage(
+    val clubName: String?,
+    val members: List<ClickTTClubMember>
+)

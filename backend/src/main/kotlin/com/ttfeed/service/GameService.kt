@@ -4,6 +4,8 @@ import com.ttfeed.database.Games
 import com.ttfeed.database.dbQuery
 import com.ttfeed.model.GameResult
 import com.ttfeed.model.GameType
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.insert
 import java.time.OffsetDateTime
 import java.util.*
 

@@ -280,34 +280,44 @@ class KnobParser {
     // -------------------------------------------------------------------------
 
     fun parseMatchDetail(html: String, matchId: Int): ParsedMatchDetail {
-        val doc       = Jsoup.parse(html)
-        val gameTable = doc.select("tr:has(td:containsOwn(Partie))")
-            .firstOrNull()?.parent()
+        val doc = Jsoup.parse(html)
+
+        // The match detail page is the group page with one match's detail expanded inline.
+        // Multiple tables on the page share the same tr CSS classes (psodd, playerStats), so
+        // we identify the correct table by the presence of a "Partie" header cell, then
+        // additionally guard every row by requiring player links — only genuine game rows have those.
+        val gameTable = doc.select("table:has(tr > td:containsOwn(Partie))").firstOrNull()
             ?: return ParsedMatchDetail(matchId, emptyList())
 
         val games = mutableListOf<ParsedGame>()
         var order = 1
 
-        for (row in gameTable.select("tr.psodd, tr.playerStats")) {
+        for (row in gameTable.select("tr")) {
             val cells = row.select("td")
 
-            // Minimum viable row: label + home player + away player + set score cells + running totals
-            // Rows without individual set scores use colspan=5 for the set area — still at least 9 cells
-            if (cells.size < 9) continue
+            // Game rows have 16 cells (with individual set scores) or 12 cells (set area collapsed
+            // into a single colspan=5 td). Rows shorter than 12 are header/total/other rows.
+            if (cells.size < 12) continue
 
+            // Only genuine game rows carry player links — skip header, total, and summary rows.
+            val homePlayerLink = cells.getOrNull(1)?.selectFirst("a[href*='gid=']") ?: continue
+            val awayPlayerLink = cells.getOrNull(2)?.selectFirst("a[href*='gid=']") ?: continue
+
+            val homePlayerGid = extractParam(homePlayerLink.attr("href"), "gid")?.toIntOrNull()
+            val awayPlayerGid = extractParam(awayPlayerLink.attr("href"), "gid")?.toIntOrNull()
             val isDoubles     = cells[1].text().contains("/")
-            val homePlayerGid = cells[1].selectFirst("a")?.attr("href")
-                ?.let { extractParam(it, "gid") }?.toIntOrNull()
-            val awayPlayerGid = cells[2].selectFirst("a")?.attr("href")
-                ?.let { extractParam(it, "gid") }?.toIntOrNull()
 
             // Cells 3..7 hold individual set scores (e.g. "11:8") when available.
-            // When unavailable they collapse into a single colspan=5 td containing "&nbsp;".
+            // When unavailable they collapse into a single colspan=5 td — parseSetScores
+            // breaks early on blank/non-score text and returns an empty list.
             val sets = parseSetScores(cells, fromIndex = 3, toIndex = 7)
 
-            // Set count totals: home at index 8, ":" separator at 9, away at 10
-            val homeSets = cells.getOrNull(8)?.text()?.trim()?.toIntOrNull()
-            val awaySets = cells.getOrNull(10)?.text()?.trim()?.toIntOrNull()
+            // Set count totals sit at fixed offsets from the END of the row, which is stable
+            // across both the 16-cell (full set detail) and 12-cell (collapsed) row formats.
+            // Layout from the end: [..., homeSets, ":", awaySets, homePoints, ":", awayPoints, homeRunning, awayRunning]
+            //                            -8         -7  -6         -5          -4  -3           -2           -1
+            val homeSets = cells.getOrNull(cells.size - 8)?.text()?.trim()?.toIntOrNull()
+            val awaySets = cells.getOrNull(cells.size - 6)?.text()?.trim()?.toIntOrNull()
 
             val result = when {
                 homeSets != null && awaySets != null && homeSets > awaySets -> GameResult.HOME

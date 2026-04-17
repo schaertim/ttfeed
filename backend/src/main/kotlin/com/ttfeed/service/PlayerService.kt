@@ -124,6 +124,42 @@ object PlayerService {
         }
     }
 
+    /** Updates both the click-tt person ID and the display name for a batch of players by licence. */
+    suspend fun updateClickTtDataBatch(updates: Map<String, Pair<Int, String>>) {
+        if (updates.isEmpty()) return
+        dbQuery {
+            for ((licence, data) in updates) {
+                val (personId, fullName) = data
+                Players.update({ Players.licenceNr eq licence }) {
+                    it[Players.clickttId] = personId
+                    it[Players.fullName]  = fullName
+                }
+            }
+        }
+    }
+
+    /**
+     * Finds the club that the majority of the given licensed players belong to.
+     * Used to match a click-tt club ID to an existing club row scraped from knob.
+     */
+    suspend fun findClubIdByLicences(licences: List<String>): UUID? {
+        if (licences.isEmpty()) return null
+        return dbQuery {
+            val clubCount = Clubs.id.count()
+            Players
+                .innerJoin(PlayerSeasons, { Players.id }, { PlayerSeasons.playerId })
+                .innerJoin(Teams, { PlayerSeasons.teamId }, { Teams.id })
+                .innerJoin(Clubs, { Teams.clubId }, { Clubs.id })
+                .select(Clubs.id, clubCount)
+                .where { Players.licenceNr inList licences }
+                .groupBy(Clubs.id)
+                .orderBy(clubCount to SortOrder.DESC)
+                .limit(1)
+                .firstOrNull()
+                ?.get(Clubs.id)
+        }
+    }
+
     suspend fun getClickTtIdById(playerId: UUID): Int? = dbQuery {
         Players.select(Players.clickttId)
             .where { Players.id eq playerId }
