@@ -1,5 +1,7 @@
 package com.ttfeed.scraper.clicktt
 
+import com.ttfeed.scraper.clicktt.model.ClickTTClubMember
+import com.ttfeed.scraper.clicktt.model.ClickTTClubPage
 import com.ttfeed.scraper.clicktt.model.ClickTTGame
 import com.ttfeed.scraper.clicktt.model.ClickTTPlayerPortrait
 import org.jsoup.Jsoup
@@ -31,26 +33,31 @@ class ClickTTParser {
     }
 
     /**
-     * Parses the club members page and returns a map of STT licence number → click-tt person ID.
+     * Parses a club members page, returning the club name and all members with their
+     * click-tt person ID, STT licence number, and display name.
      */
-    fun parseClubMembersToMappings(html: String): Map<String, Int> {
-        val doc      = Jsoup.parse(html)
-        val mappings = mutableMapOf<String, Int>()
+    fun parseClubPage(html: String): ClickTTClubPage {
+        val doc     = Jsoup.parse(html)
+        val members = mutableListOf<ClickTTClubMember>()
 
         for (row in doc.select("table.result-set tbody tr")) {
-            val cells    = row.select("td")
+            val cells = row.select("td")
             if (cells.size < 3) continue
 
-            val personId = cells[1].select("a[href*='person=']").firstOrNull()
-                ?.attr("href")?.let { extractParam(it, "person") }?.toIntOrNull()
-            val licence  = cells[2].text().trim()
+            val link     = cells[1].select("a[href*='person=']").firstOrNull() ?: continue
+            val personId = link.attr("href").let { extractParam(it, "person") }?.toIntOrNull() ?: continue
+            val fullName = link.text().trim().takeIf { it.isNotBlank() } ?: continue
+            val licence  = cells[2].text().trim().takeIf { it.isNotBlank() } ?: continue
 
-            if (personId != null && licence.isNotEmpty()) {
-                mappings[licence] = personId
-            }
+            members.add(ClickTTClubMember(licence = licence, personId = personId, fullName = fullName))
         }
-        return mappings
+
+        return ClickTTClubPage(clubName = parseClubName(doc), members = members)
     }
+
+    private fun parseClubName(doc: Document): String? =
+        doc.selectFirst("div.content-section h1, h1.page-title, h1")
+            ?.text()?.trim()?.takeIf { it.isNotBlank() }
 
     private fun parseCurrentElo(doc: Document): Int? {
         val eloElement = doc.select("td:containsOwn(Klassierung)").next("td").firstOrNull()

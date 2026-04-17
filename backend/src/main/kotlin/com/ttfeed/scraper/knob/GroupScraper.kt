@@ -38,13 +38,12 @@ class GroupScraper(
         }
     }
 
-    suspend fun run() {
+    suspend fun run(seasons: List<String> = generateSeasons(fromYear = 1989, toYear = 2025)) {
         // Ensure all federations exist before scraping begins
         transaction {
             FEDERATION_RVIDS.keys.forEach { upsertFederation(it) }
         }
 
-        val seasons = generateSeasons(fromYear = 1989, toYear = 2025)
         logger.info("GroupScraper: ${seasons.size} seasons to scrape")
 
         for (season in seasons) {
@@ -52,17 +51,8 @@ class GroupScraper(
             val seasonYear = season.substringBefore("/").toInt()
             logger.info("Season $season — gruppe range $range")
 
-            // STT pass — national leagues, no rvid
-            runPass(season, seasonYear, leagueName = "STT", rvid = null, range = range)
-
-            // Regional passes — regional leagues only exist from 2011/2012 onwards
-            if (seasonYear >= 2011) {
-                FEDERATION_RVIDS.entries
-                    .filter { it.value != null }
-                    .forEach { (leagueName, rvid) ->
-                        runPass(season, seasonYear, leagueName, rvid, range)
-                    }
-            }
+            // TODO: temporary — only scraping MTTV to validate parsing accuracy before full run
+            runPass(season, seasonYear, leagueName = "MTTV", rvid = 5, range = range)
         }
 
         logger.info("GroupScraper complete")
