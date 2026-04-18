@@ -22,6 +22,7 @@ class MatchScraper(
                     Matches.knobMatchId,
                     Matches.homeTeamId,
                     Matches.awayTeamId,
+                    Matches.playedAt,
                     Groups.knobGruppe,
                     Federations.name,
                     Seasons.id,
@@ -38,6 +39,7 @@ class MatchScraper(
                         knobMatchId = it[Matches.knobMatchId]!!,
                         homeTeamId  = it[Matches.homeTeamId],
                         awayTeamId  = it[Matches.awayTeamId],
+                        playedAt    = it[Matches.playedAt],
                         knobGruppe  = it[Groups.knobGruppe],
                         rvid        = FEDERATION_RVIDS[it[Federations.name]],
                         seasonId    = it[Seasons.id],
@@ -89,6 +91,7 @@ class MatchScraper(
                     it[Games.homeSets]      = game.homeSets?.toShort()
                     it[Games.awaySets]      = game.awaySets?.toShort()
                     it[Games.result]        = game.result
+                    it[Games.playedAt]      = match.playedAt
                 }
 
                 val gameId = Games.select(Games.id)
@@ -166,6 +169,7 @@ class MatchScraper(
         val knobMatchId: Int,
         val homeTeamId: UUID,
         val awayTeamId: UUID,
+        val playedAt: java.time.OffsetDateTime?,
         val knobGruppe: Int,
         val rvid: Int?,
         val seasonId: UUID,
