@@ -290,6 +290,9 @@ class KnobParser {
             ?: return ParsedMatchDetail(matchId, emptyList())
 
         val games = mutableListOf<ParsedGame>()
+        // Built from singles rows so doubles player 2 can be resolved by name.
+        // Singles always precede doubles in knob.ch match layout.
+        val nameToKnobId = mutableMapOf<String, Int>()
         var order = 1
 
         for (row in gameTable.select("tr")) {
@@ -300,19 +303,57 @@ class KnobParser {
             if (cells.size < 12) continue
 
             // Only genuine game rows carry player links — skip header, total, and summary rows.
-            val homePlayerLinks = cells.getOrNull(1)?.select("a[href*='gid=']") ?: continue
-            val awayPlayerLinks = cells.getOrNull(2)?.select("a[href*='gid=']") ?: continue
-            if (homePlayerLinks.isEmpty() || awayPlayerLinks.isEmpty()) continue
+            val homeLinks = cells.getOrNull(1)?.select("a[href*='gid=']") ?: continue
+            val awayLinks = cells.getOrNull(2)?.select("a[href*='gid=']") ?: continue
+            if (homeLinks.isEmpty() || awayLinks.isEmpty()) continue
 
-            val homePlayerGid   = extractParam(homePlayerLinks[0].attr("href"), "gid")?.toIntOrNull()
-            val homePlayerName  = homePlayerLinks[0].text().trim().takeIf { it.isNotBlank() }
-            val homePlayer2Gid  = homePlayerLinks.getOrNull(1)?.let { extractParam(it.attr("href"), "gid")?.toIntOrNull() }
-            val homePlayer2Name = homePlayerLinks.getOrNull(1)?.text()?.trim()?.takeIf { it.isNotBlank() }
-            val awayPlayerGid   = extractParam(awayPlayerLinks[0].attr("href"), "gid")?.toIntOrNull()
-            val awayPlayerName  = awayPlayerLinks[0].text().trim().takeIf { it.isNotBlank() }
-            val awayPlayer2Gid  = awayPlayerLinks.getOrNull(1)?.let { extractParam(it.attr("href"), "gid")?.toIntOrNull() }
-            val awayPlayer2Name = awayPlayerLinks.getOrNull(1)?.text()?.trim()?.takeIf { it.isNotBlank() }
-            val isDoubles      = cells[1].text().contains("/")
+            // For doubles, knob.ch puts both players in a single <a> tag ("A / B [ klass ]").
+            // For singles, there is one <a> tag with one player ("A [ klass ]").
+            val isDoubles = cells[1].text().contains("/")
+
+            val homeRaw = homeLinks[0].text().trim()
+            val awayRaw = awayLinks[0].text().trim()
+            val homeGid1 = extractParam(homeLinks[0].attr("href"), "gid")?.toIntOrNull()
+            val awayGid1 = extractParam(awayLinks[0].attr("href"), "gid")?.toIntOrNull()
+
+            // Klass is encoded as "[ X ]" at the end of the link text.
+            val homeKlass = extractKlass(homeRaw)
+            val awayKlass = extractKlass(awayRaw)
+            val homeClean = stripKlass(homeRaw)
+            val awayClean = stripKlass(awayRaw)
+
+            val homeName1: String?
+            val homeName2: String?
+            val homeGid2: Int?
+            val homePlayer1Klass: String?
+            val awayName1: String?
+            val awayName2: String?
+            val awayGid2: Int?
+            val awayPlayer1Klass: String?
+
+            if (!isDoubles) {
+                homeName1 = homeClean.takeIf { it.isNotBlank() }
+                homeName2 = null
+                homeGid2 = null
+                homePlayer1Klass = homeKlass
+                awayName1 = awayClean.takeIf { it.isNotBlank() }
+                awayName2 = null
+                awayGid2 = null
+                awayPlayer1Klass = awayKlass
+                // Register in name map so the doubles row below can resolve player 2 by name
+                if (homeGid1 != null && homeName1 != null) nameToKnobId[homeName1] = homeGid1
+                if (awayGid1 != null && awayName1 != null) nameToKnobId[awayName1] = awayGid1
+            } else {
+                // "Player A / Player B" — split on the slash to get each name
+                homeName1 = homeClean.substringBefore("/").trim().takeIf { it.isNotBlank() }
+                homeName2 = homeClean.substringAfter("/").trim().takeIf { it.isNotBlank() }
+                homeGid2  = homeName2?.let { nameToKnobId[it] }
+                homePlayer1Klass = null // doubles klass is an aggregate, not per-player
+                awayName1 = awayClean.substringBefore("/").trim().takeIf { it.isNotBlank() }
+                awayName2 = awayClean.substringAfter("/").trim().takeIf { it.isNotBlank() }
+                awayGid2  = awayName2?.let { nameToKnobId[it] }
+                awayPlayer1Klass = null
+            }
 
             // Cells 3..7 hold individual set scores (e.g. "11:8") when available.
             // When unavailable they collapse into a single colspan=5 td — parseSetScores
@@ -334,20 +375,22 @@ class KnobParser {
 
             games.add(
                 ParsedGame(
-                    orderInMatch = order++,
-                    gameType = if (isDoubles) GameType.DOUBLES else GameType.SINGLES,
-                    homePlayer1KnobId = homePlayerGid,
-                    homePlayer1Name   = homePlayerName,
-                    homePlayer2KnobId = homePlayer2Gid,
-                    homePlayer2Name   = homePlayer2Name,
-                    awayPlayer1KnobId = awayPlayerGid,
-                    awayPlayer1Name   = awayPlayerName,
-                    awayPlayer2KnobId = awayPlayer2Gid,
-                    awayPlayer2Name   = awayPlayer2Name,
+                    orderInMatch    = order++,
+                    gameType        = if (isDoubles) GameType.DOUBLES else GameType.SINGLES,
+                    homePlayer1KnobId = homeGid1,
+                    homePlayer1Name   = homeName1,
+                    homePlayer1Klass  = homePlayer1Klass,
+                    homePlayer2KnobId = homeGid2,
+                    homePlayer2Name   = homeName2,
+                    awayPlayer1KnobId = awayGid1,
+                    awayPlayer1Name   = awayName1,
+                    awayPlayer1Klass  = awayPlayer1Klass,
+                    awayPlayer2KnobId = awayGid2,
+                    awayPlayer2Name   = awayName2,
                     homeSets = homeSets,
                     awaySets = awaySets,
-                    result = result,
-                    sets = sets
+                    result   = result,
+                    sets     = sets
                 )
             )
         }
@@ -398,6 +441,12 @@ class KnobParser {
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
+
+    private fun extractKlass(text: String): String? =
+        Regex("""\[([^\]]+)\]$""").find(text.trim())?.groupValues?.get(1)?.trim()
+
+    private fun stripKlass(text: String): String =
+        text.trim().replace(Regex("""\s*\[[^\]]+\]$"""), "").trim()
 
     private fun extractParam(url: String, key: String): String? =
         url.split("&", "?")
