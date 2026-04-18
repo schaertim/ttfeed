@@ -118,7 +118,21 @@ class MatchScraper(
      * references — players who only appear as substitutes or guests are created on the fly.
      */
     private fun upsertPlayer(knobId: Int?, name: String?, klass: String?, teamId: UUID, seasonId: UUID): UUID? {
-        knobId ?: return null
+        if (knobId == null) {
+            // Doubles player 2 with no gid on the page — look up by name as a best-effort fallback
+            name ?: return null
+            return Players.select(Players.id)
+                .where { Players.fullName eq name }
+                .firstOrNull()?.get(Players.id)
+                ?.also { playerId ->
+                    PlayerSeasons.insertIgnore {
+                        it[PlayerSeasons.playerId] = playerId
+                        it[PlayerSeasons.teamId]   = teamId
+                        it[PlayerSeasons.seasonId] = seasonId
+                        it[PlayerSeasons.klass]    = klass
+                    }
+                }
+        }
 
         val existing = Players.select(Players.id)
             .where { Players.knobId eq knobId }
