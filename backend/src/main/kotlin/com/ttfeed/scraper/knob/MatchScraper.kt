@@ -73,10 +73,10 @@ class MatchScraper(
 
         transaction {
             for (game in detail.games) {
-                val homePlayer1Id = upsertPlayer(game.homePlayer1KnobId, game.homePlayer1Name, match.homeTeamId, match.seasonId)
-                val homePlayer2Id = upsertPlayer(game.homePlayer2KnobId, game.homePlayer2Name, match.homeTeamId, match.seasonId)
-                val awayPlayer1Id = upsertPlayer(game.awayPlayer1KnobId, game.awayPlayer1Name, match.awayTeamId, match.seasonId)
-                val awayPlayer2Id = upsertPlayer(game.awayPlayer2KnobId, game.awayPlayer2Name, match.awayTeamId, match.seasonId)
+                val homePlayer1Id = upsertPlayer(game.homePlayer1KnobId, game.homePlayer1Name, game.homePlayer1Klass, match.homeTeamId, match.seasonId)
+                val homePlayer2Id = upsertPlayer(game.homePlayer2KnobId, game.homePlayer2Name, null, match.homeTeamId, match.seasonId)
+                val awayPlayer1Id = upsertPlayer(game.awayPlayer1KnobId, game.awayPlayer1Name, game.awayPlayer1Klass, match.awayTeamId, match.seasonId)
+                val awayPlayer2Id = upsertPlayer(game.awayPlayer2KnobId, game.awayPlayer2Name, null, match.awayTeamId, match.seasonId)
 
                 Games.insertIgnore {
                     it[Games.matchId]       = match.matchId
@@ -117,7 +117,7 @@ class MatchScraper(
      * is not yet in the database. This ensures match detail scraping never produces null player
      * references — players who only appear as substitutes or guests are created on the fly.
      */
-    private fun upsertPlayer(knobId: Int?, name: String?, teamId: UUID, seasonId: UUID): UUID? {
+    private fun upsertPlayer(knobId: Int?, name: String?, klass: String?, teamId: UUID, seasonId: UUID): UUID? {
         knobId ?: return null
 
         val existing = Players.select(Players.id)
@@ -141,6 +141,7 @@ class MatchScraper(
             it[PlayerSeasons.playerId] = playerId
             it[PlayerSeasons.teamId]   = teamId
             it[PlayerSeasons.seasonId] = seasonId
+            it[PlayerSeasons.klass]    = klass
         }
 
         return playerId

@@ -3,7 +3,6 @@ package com.ttfeed.scraper.knob
 import com.ttfeed.database.*
 import com.ttfeed.model.MatchStatus
 import com.ttfeed.scraper.knob.model.ParsedMatch
-import com.ttfeed.scraper.knob.model.ParsedPlayer
 import com.ttfeed.scraper.knob.model.ParsedStandingRow
 import com.ttfeed.scraper.knob.model.ParsedTeam
 import org.jetbrains.exposed.sql.*
@@ -94,7 +93,6 @@ class GroupScraper(
 
                     if (page.teams.isNotEmpty()) {
                         val teamIdMap = upsertTeams(page.teams, groupId)
-                        upsertPlayerSeasons(page.players, teamIdMap, seasonId)
                         upsertMatches(page.matches, groupId, teamIdMap)
                         upsertStandings(page.standings, groupId, teamIdMap)
                         updateGroupZones(groupId, page.promotionSpots, page.relegationSpots)
@@ -228,30 +226,6 @@ class GroupScraper(
             }
 
             team.knobTeamId to teamId
-        }
-    }
-
-    private fun upsertPlayerSeasons(players: List<ParsedPlayer>, teamIdMap: Map<Int, UUID>, seasonId: UUID) {
-        for (player in players) {
-            val cleanName = player.fullName.replace(Regex("""\s*\([^)]+\)\s*$"""), "").trim()
-
-            Players.insertIgnore {
-                it[Players.fullName]  = cleanName
-                it[Players.knobId]    = player.knobId
-                it[Players.licenceNr] = "$PLACEHOLDER_LICENCE_PREFIX${player.knobId}"
-            }
-            val playerId = Players.select(Players.id)
-                .where { Players.knobId eq player.knobId }
-                .first()[Players.id]
-
-            val teamId = teamIdMap[player.knobTeamId] ?: continue
-
-            PlayerSeasons.insertIgnore {
-                it[PlayerSeasons.playerId] = playerId
-                it[PlayerSeasons.teamId]   = teamId
-                it[PlayerSeasons.seasonId] = seasonId
-                it[PlayerSeasons.klass]    = player.klass.takeIf { k -> k.isNotBlank() }
-            }
         }
     }
 
