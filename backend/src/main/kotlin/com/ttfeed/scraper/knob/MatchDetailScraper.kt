@@ -69,15 +69,19 @@ class MatchDetailScraper(
 
         transaction {
             for (game in detail.games) {
-                val homePlayerId = resolvePlayerId(game.homePlayer1KnobId)
-                val awayPlayerId = resolvePlayerId(game.awayPlayer1KnobId)
+                val homePlayerId  = resolvePlayerId(game.homePlayer1KnobId)
+                val homePlayer2Id = resolvePlayerId(game.homePlayer2KnobId)
+                val awayPlayerId  = resolvePlayerId(game.awayPlayer1KnobId)
+                val awayPlayer2Id = resolvePlayerId(game.awayPlayer2KnobId)
 
                 Games.insertIgnore {
                     it[Games.matchId]       = match.matchId
                     it[Games.gameType]      = game.gameType
                     it[Games.orderInMatch]  = game.orderInMatch.toShort()
                     it[Games.homePlayer1Id] = homePlayerId
+                    it[Games.homePlayer2Id] = homePlayer2Id
                     it[Games.awayPlayer1Id] = awayPlayerId
+                    it[Games.awayPlayer2Id] = awayPlayer2Id
                     it[Games.homeSets]      = game.homeSets?.toShort()
                     it[Games.awaySets]      = game.awaySets?.toShort()
                     it[Games.result]        = game.result
