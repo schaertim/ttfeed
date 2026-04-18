@@ -8,22 +8,23 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import java.util.*
 
-class MatchDetailScraper(
+class MatchScraper(
     private val client: KnobClient,
     private val parser: KnobParser
 ) {
-    private val logger = LoggerFactory.getLogger(MatchDetailScraper::class.java)
+    private val logger = LoggerFactory.getLogger(MatchScraper::class.java)
 
     suspend fun run() {
-        // Use a subquery to avoid materialising 100k+ UUIDs as query parameters,
-        // which would exceed Postgres's 65535-parameter limit
         val matches = transaction {
             (Matches innerJoin Groups innerJoin Divisions innerJoin Federations innerJoin Seasons)
                 .select(
                     Matches.id,
                     Matches.knobMatchId,
+                    Matches.homeTeamId,
+                    Matches.awayTeamId,
                     Groups.knobGruppe,
                     Federations.name,
+                    Seasons.id,
                     Seasons.name
                 )
                 .where {
@@ -35,18 +36,21 @@ class MatchDetailScraper(
                     MatchToScrape(
                         matchId     = it[Matches.id],
                         knobMatchId = it[Matches.knobMatchId]!!,
+                        homeTeamId  = it[Matches.homeTeamId],
+                        awayTeamId  = it[Matches.awayTeamId],
                         knobGruppe  = it[Groups.knobGruppe],
                         rvid        = FEDERATION_RVIDS[it[Federations.name]],
+                        seasonId    = it[Seasons.id],
                         season      = it[Seasons.name]
                     )
                 }
         }
 
-        logger.info("MatchDetailScraper: ${matches.size} completed matches without game details")
+        logger.info("MatchScraper: ${matches.size} completed matches without game details")
 
         for ((index, match) in matches.withIndex()) {
             try {
-                scrapeMatchDetail(match)
+                scrapeMatch(match)
                 if (index % 100 == 0) {
                     logger.info("Progress: $index / ${matches.size} matches scraped")
                 }
@@ -55,10 +59,10 @@ class MatchDetailScraper(
             }
         }
 
-        logger.info("MatchDetailScraper complete")
+        logger.info("MatchScraper complete")
     }
 
-    private suspend fun scrapeMatchDetail(match: MatchToScrape) {
+    private suspend fun scrapeMatch(match: MatchToScrape) {
         val html   = client.fetchMatchDetail(match.knobGruppe, match.knobMatchId, match.season, match.rvid)
         val detail = parser.parseMatchDetail(html, match.knobMatchId)
 
@@ -69,25 +73,24 @@ class MatchDetailScraper(
 
         transaction {
             for (game in detail.games) {
-                val homePlayerId  = resolvePlayerId(game.homePlayer1KnobId)
-                val homePlayer2Id = resolvePlayerId(game.homePlayer2KnobId)
-                val awayPlayerId  = resolvePlayerId(game.awayPlayer1KnobId)
-                val awayPlayer2Id = resolvePlayerId(game.awayPlayer2KnobId)
+                val homePlayer1Id = upsertPlayer(game.homePlayer1KnobId, game.homePlayer1Name, match.homeTeamId, match.seasonId)
+                val homePlayer2Id = upsertPlayer(game.homePlayer2KnobId, game.homePlayer2Name, match.homeTeamId, match.seasonId)
+                val awayPlayer1Id = upsertPlayer(game.awayPlayer1KnobId, game.awayPlayer1Name, match.awayTeamId, match.seasonId)
+                val awayPlayer2Id = upsertPlayer(game.awayPlayer2KnobId, game.awayPlayer2Name, match.awayTeamId, match.seasonId)
 
                 Games.insertIgnore {
                     it[Games.matchId]       = match.matchId
                     it[Games.gameType]      = game.gameType
                     it[Games.orderInMatch]  = game.orderInMatch.toShort()
-                    it[Games.homePlayer1Id] = homePlayerId
+                    it[Games.homePlayer1Id] = homePlayer1Id
                     it[Games.homePlayer2Id] = homePlayer2Id
-                    it[Games.awayPlayer1Id] = awayPlayerId
+                    it[Games.awayPlayer1Id] = awayPlayer1Id
                     it[Games.awayPlayer2Id] = awayPlayer2Id
                     it[Games.homeSets]      = game.homeSets?.toShort()
                     it[Games.awaySets]      = game.awaySets?.toShort()
                     it[Games.result]        = game.result
                 }
 
-                // Retrieve the inserted (or existing) game ID to attach set scores
                 val gameId = Games.select(Games.id)
                     .where {
                         (Games.matchId eq match.matchId) and
@@ -109,18 +112,48 @@ class MatchDetailScraper(
         logger.debug("Scraped ${detail.games.size} games for matchId=${match.knobMatchId}")
     }
 
-    private fun resolvePlayerId(knobId: Int?): UUID? {
+    /**
+     * Returns the player's UUID, inserting a new player and player_season record if the knobId
+     * is not yet in the database. This ensures match detail scraping never produces null player
+     * references — players who only appear as substitutes or guests are created on the fly.
+     */
+    private fun upsertPlayer(knobId: Int?, name: String?, teamId: UUID, seasonId: UUID): UUID? {
         knobId ?: return null
-        return Players.select(Players.id)
+
+        val existing = Players.select(Players.id)
             .where { Players.knobId eq knobId }
-            .firstOrNull()?.get(Players.id)
+            .firstOrNull()
+
+        val playerId = if (existing != null) {
+            existing[Players.id]
+        } else {
+            Players.insertIgnore {
+                it[Players.knobId]    = knobId
+                it[Players.fullName]  = name ?: "Unknown"
+                it[Players.licenceNr] = "$PLACEHOLDER_LICENCE_PREFIX$knobId"
+            }
+            Players.select(Players.id)
+                .where { Players.knobId eq knobId }
+                .first()[Players.id]
+        }
+
+        PlayerSeasons.insertIgnore {
+            it[PlayerSeasons.playerId] = playerId
+            it[PlayerSeasons.teamId]   = teamId
+            it[PlayerSeasons.seasonId] = seasonId
+        }
+
+        return playerId
     }
 
     private data class MatchToScrape(
         val matchId: UUID,
         val knobMatchId: Int,
+        val homeTeamId: UUID,
+        val awayTeamId: UUID,
         val knobGruppe: Int,
         val rvid: Int?,
+        val seasonId: UUID,
         val season: String
     )
 }

@@ -304,10 +304,14 @@ class KnobParser {
             val awayPlayerLinks = cells.getOrNull(2)?.select("a[href*='gid=']") ?: continue
             if (homePlayerLinks.isEmpty() || awayPlayerLinks.isEmpty()) continue
 
-            val homePlayerGid  = extractParam(homePlayerLinks[0].attr("href"), "gid")?.toIntOrNull()
-            val homePlayer2Gid = homePlayerLinks.getOrNull(1)?.let { extractParam(it.attr("href"), "gid")?.toIntOrNull() }
-            val awayPlayerGid  = extractParam(awayPlayerLinks[0].attr("href"), "gid")?.toIntOrNull()
-            val awayPlayer2Gid = awayPlayerLinks.getOrNull(1)?.let { extractParam(it.attr("href"), "gid")?.toIntOrNull() }
+            val homePlayerGid   = extractParam(homePlayerLinks[0].attr("href"), "gid")?.toIntOrNull()
+            val homePlayerName  = homePlayerLinks[0].text().trim().takeIf { it.isNotBlank() }
+            val homePlayer2Gid  = homePlayerLinks.getOrNull(1)?.let { extractParam(it.attr("href"), "gid")?.toIntOrNull() }
+            val homePlayer2Name = homePlayerLinks.getOrNull(1)?.text()?.trim()?.takeIf { it.isNotBlank() }
+            val awayPlayerGid   = extractParam(awayPlayerLinks[0].attr("href"), "gid")?.toIntOrNull()
+            val awayPlayerName  = awayPlayerLinks[0].text().trim().takeIf { it.isNotBlank() }
+            val awayPlayer2Gid  = awayPlayerLinks.getOrNull(1)?.let { extractParam(it.attr("href"), "gid")?.toIntOrNull() }
+            val awayPlayer2Name = awayPlayerLinks.getOrNull(1)?.text()?.trim()?.takeIf { it.isNotBlank() }
             val isDoubles      = cells[1].text().contains("/")
 
             // Cells 3..7 hold individual set scores (e.g. "11:8") when available.
@@ -333,9 +337,13 @@ class KnobParser {
                     orderInMatch = order++,
                     gameType = if (isDoubles) GameType.DOUBLES else GameType.SINGLES,
                     homePlayer1KnobId = homePlayerGid,
+                    homePlayer1Name   = homePlayerName,
                     homePlayer2KnobId = homePlayer2Gid,
+                    homePlayer2Name   = homePlayer2Name,
                     awayPlayer1KnobId = awayPlayerGid,
+                    awayPlayer1Name   = awayPlayerName,
                     awayPlayer2KnobId = awayPlayer2Gid,
+                    awayPlayer2Name   = awayPlayer2Name,
                     homeSets = homeSets,
                     awaySets = awaySets,
                     result = result,
