@@ -300,12 +300,15 @@ class KnobParser {
             if (cells.size < 12) continue
 
             // Only genuine game rows carry player links — skip header, total, and summary rows.
-            val homePlayerLink = cells.getOrNull(1)?.selectFirst("a[href*='gid=']") ?: continue
-            val awayPlayerLink = cells.getOrNull(2)?.selectFirst("a[href*='gid=']") ?: continue
+            val homePlayerLinks = cells.getOrNull(1)?.select("a[href*='gid=']") ?: continue
+            val awayPlayerLinks = cells.getOrNull(2)?.select("a[href*='gid=']") ?: continue
+            if (homePlayerLinks.isEmpty() || awayPlayerLinks.isEmpty()) continue
 
-            val homePlayerGid = extractParam(homePlayerLink.attr("href"), "gid")?.toIntOrNull()
-            val awayPlayerGid = extractParam(awayPlayerLink.attr("href"), "gid")?.toIntOrNull()
-            val isDoubles     = cells[1].text().contains("/")
+            val homePlayerGid  = extractParam(homePlayerLinks[0].attr("href"), "gid")?.toIntOrNull()
+            val homePlayer2Gid = homePlayerLinks.getOrNull(1)?.let { extractParam(it.attr("href"), "gid")?.toIntOrNull() }
+            val awayPlayerGid  = extractParam(awayPlayerLinks[0].attr("href"), "gid")?.toIntOrNull()
+            val awayPlayer2Gid = awayPlayerLinks.getOrNull(1)?.let { extractParam(it.attr("href"), "gid")?.toIntOrNull() }
+            val isDoubles      = cells[1].text().contains("/")
 
             // Cells 3..7 hold individual set scores (e.g. "11:8") when available.
             // When unavailable they collapse into a single colspan=5 td — parseSetScores
@@ -330,9 +333,9 @@ class KnobParser {
                     orderInMatch = order++,
                     gameType = if (isDoubles) GameType.DOUBLES else GameType.SINGLES,
                     homePlayer1KnobId = homePlayerGid,
-                    homePlayer2KnobId = null,
+                    homePlayer2KnobId = homePlayer2Gid,
                     awayPlayer1KnobId = awayPlayerGid,
-                    awayPlayer2KnobId = null,
+                    awayPlayer2KnobId = awayPlayer2Gid,
                     homeSets = homeSets,
                     awaySets = awaySets,
                     result = result,

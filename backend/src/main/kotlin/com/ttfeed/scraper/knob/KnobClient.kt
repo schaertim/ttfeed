@@ -20,7 +20,7 @@ class KnobClient {
 
     suspend fun fetchDivisionPage(gruppeId: Int, season: String? = null, rvid: Int? = null): String {
         val url = buildString {
-            append("$baseUrl?gruppe=$gruppeId&listmode=2")
+            append("$baseUrl?gruppe=$gruppeId&listmode=2&showall")
             if (rvid != null) append("&rvid=$rvid")
             if (season != null) append("&ms=${season.replace("/", "")}")
         }
