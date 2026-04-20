@@ -30,7 +30,8 @@ object Groups : Table("division_group") {
     val id              = uuid("id").autoGenerate()
     val divisionId      = uuid("division_id").references(Divisions.id)
     val name            = varchar("name", 50)
-    val knobGruppe      = integer("knob_gruppe")
+    val knobGruppe      = integer("knob_gruppe").nullable()   // null for click-tt groups
+    val clickttId       = integer("clicktt_id").nullable()    // null for knob groups
     val promotionSpots  = short("promotion_spots").nullable()
     val relegationSpots = short("relegation_spots").nullable()
     override val primaryKey = PrimaryKey(id)
@@ -59,12 +60,13 @@ object Clubs : Table("club") {
 }
 
 object Teams : Table("team") {
-    val id      = uuid("id").autoGenerate()
-    val clubId  = uuid("club_id").references(Clubs.id)
-    val groupId = uuid("group_id").references(Groups.id)
-    val name    = varchar("name", 100)
+    val id       = uuid("id").autoGenerate()
+    val clubId   = uuid("club_id").references(Clubs.id)
+    val groupId  = uuid("group_id").references(Groups.id)
+    val name     = varchar("name", 100)
     // knobId is NOT globally unique — team IDs are reused across seasons, unique only within a group
-    val knobId  = integer("knob_id").nullable()
+    val knobId   = integer("knob_id").nullable()
+    val clickttId = integer("clicktt_id").nullable()   // teamtable= param, globally unique in click-tt
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -106,7 +108,8 @@ object Matches : Table("match") {
     val homeScore   = short("home_score").nullable()
     val awayScore   = short("away_score").nullable()
     // knobMatchId is NOT globally unique — match IDs are reused across seasons, unique only within a group
-    val knobMatchId = integer("knob_match_id").nullable()
+    val knobMatchId    = integer("knob_match_id").nullable()
+    val clickttMatchId = integer("clicktt_match_id").nullable()  // meeting= param, globally unique in click-tt
     val status = enumerationByName("status", 20, MatchStatus::class)
     override val primaryKey = PrimaryKey(id)
 }
