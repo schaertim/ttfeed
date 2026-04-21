@@ -41,6 +41,7 @@ data class ParsedClickTTMatch(
     val meetingId: Int?,
     val date: String,           // "27.08.2025"
     val time: String?,          // "20:15", null if not listed
+    val round: String?,         // "1", "2", … as printed in the schedule table
     val homeTeamName: String,
     val awayTeamName: String,
     val homeScore: Int?,
