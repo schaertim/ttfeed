@@ -16,7 +16,7 @@ class MatchScraper(
 
     suspend fun run() {
         val matches = transaction {
-            (Matches innerJoin Groups innerJoin Divisions innerJoin Federations innerJoin Seasons)
+            (Matches innerJoin Groups innerJoin Federations innerJoin Seasons)
                 .select(
                     Matches.id,
                     Matches.knobMatchId,

@@ -7,6 +7,7 @@ import com.ttfeed.scraper.knob.model.ParsedStandingRow
 import com.ttfeed.scraper.knob.model.ParsedTeam
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.util.UUID
 import org.slf4j.LoggerFactory
 import java.time.LocalDateTime
 import java.time.OffsetDateTime
@@ -88,8 +89,10 @@ class GroupScraper(
                 transaction {
                     val seasonId     = upsertSeason(season)
                     val federationId = upsertFederation(leagueName)
-                    val divisionId   = upsertDivision(result.divisionName, federationId, seasonId)
-                    val groupId      = upsertGroup(divisionId, result.groupName, gruppeId)
+                    // Combine division + group name when they differ (e.g. "1. Liga - Gruppe A")
+                    val groupName = if (result.groupName != result.divisionName)
+                        "${result.divisionName} - ${result.groupName}" else result.divisionName
+                    val groupId = upsertGroup(federationId, seasonId, groupName, gruppeId)
 
                     if (page.teams.isNotEmpty()) {
                         val teamIdMap = upsertTeams(page.teams, groupId)
@@ -110,7 +113,7 @@ class GroupScraper(
     }
 
     private fun isAlreadyScraped(gruppeId: Int, season: String): Boolean = transaction {
-        (Groups innerJoin Divisions innerJoin Seasons)
+        (Groups innerJoin Seasons)
             .select(Groups.id)
             .where { (Groups.knobGruppe eq gruppeId) and (Seasons.name eq season) }
             .firstOrNull()
@@ -136,28 +139,17 @@ class GroupScraper(
             .first()[Federations.id]
     }
 
-    private fun upsertDivision(name: String, federationId: UUID, seasonId: UUID): UUID {
-        Divisions.insertIgnore {
-            it[Divisions.name]         = name
-            it[Divisions.federationId] = federationId
-            it[Divisions.seasonId]     = seasonId
-        }
-        return Divisions.select(Divisions.id).where {
-            (Divisions.federationId eq federationId) and
-                    (Divisions.seasonId     eq seasonId) and
-                    (Divisions.name         eq name)
-        }.first()[Divisions.id]
-    }
-
-    private fun upsertGroup(divisionId: UUID, name: String, knobGruppe: Int): UUID {
+    private fun upsertGroup(federationId: UUID, seasonId: UUID, name: String, knobGruppe: Int): UUID {
         Groups.insertIgnore {
-            it[Groups.divisionId] = divisionId
-            it[Groups.name]       = name
-            it[Groups.knobGruppe] = knobGruppe
+            it[Groups.federationId] = federationId
+            it[Groups.seasonId]     = seasonId
+            it[Groups.name]         = name
+            it[Groups.knobGruppe]   = knobGruppe
         }
         return Groups.select(Groups.id).where {
-            (Groups.divisionId eq divisionId) and
-                    (Groups.knobGruppe eq knobGruppe)
+            (Groups.federationId eq federationId) and
+            (Groups.seasonId     eq seasonId) and
+            (Groups.knobGruppe   eq knobGruppe)
         }.first()[Groups.id]
     }
 

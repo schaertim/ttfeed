@@ -74,8 +74,7 @@ class ClickTTGroupScraper(
                 transaction {
                     val seasonId     = upsertSeason(season)
                     val federationId = upsertFederation(federationName)
-                    val divisionId   = upsertDivision(group.divisionName, federationId, seasonId)
-                    val groupId      = upsertGroup(divisionId, group.divisionName, group.groupId)
+                    val groupId      = upsertGroup(federationId, seasonId, group.divisionName, group.groupId)
 
                     // teamIdByTableId: clicktt teamtable ID → DB UUID
                     val teamIdByTableId = upsertTeams(standings, groupId)
@@ -118,24 +117,12 @@ class ClickTTGroupScraper(
         return Federations.select(Federations.id).where { Federations.name eq name }.first()[Federations.id]
     }
 
-    private fun upsertDivision(name: String, federationId: UUID, seasonId: UUID): UUID {
-        Divisions.insertIgnore {
-            it[Divisions.name]         = name
-            it[Divisions.federationId] = federationId
-            it[Divisions.seasonId]     = seasonId
-        }
-        return Divisions.select(Divisions.id).where {
-            (Divisions.federationId eq federationId) and
-            (Divisions.seasonId     eq seasonId) and
-            (Divisions.name         eq name)
-        }.first()[Divisions.id]
-    }
-
-    private fun upsertGroup(divisionId: UUID, name: String, clickttId: Int): UUID {
+    private fun upsertGroup(federationId: UUID, seasonId: UUID, name: String, clickttId: Int): UUID {
         Groups.insertIgnore {
-            it[Groups.divisionId] = divisionId
-            it[Groups.name]       = name
-            it[Groups.clickttId]  = clickttId
+            it[Groups.federationId] = federationId
+            it[Groups.seasonId]     = seasonId
+            it[Groups.name]         = name
+            it[Groups.clickttId]    = clickttId
             // knobGruppe left null for click-tt groups
         }
         return Groups.select(Groups.id)

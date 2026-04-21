@@ -9,7 +9,6 @@ fun Application.configureRouting() {
         route("/api/v1") {
             seasonRoutes()
             federationRoutes()
-            divisionRoutes()
             groupRoutes()
             teamRoutes()
             matchRoutes()

@@ -173,9 +173,9 @@ class ClickTTParser {
             val gamesFor     = gamesText.substringBefore(":").trim().toIntOrNull() ?: 0
             val gamesAgainst = gamesText.substringAfter(":").trim().toIntOrNull() ?: 0
 
-            // Points is the last cell; cells[8] is the +/- diff which we don't store
-            val points = cells[9].text().trim().toIntOrNull()
-                ?: cells[8].text().trim().toIntOrNull()
+            // Points cell is cells[9] and contains "W:L" format e.g. "18:6" — take the left side
+            val points = cells[9].text().trim().substringBefore(":").trim().toIntOrNull()
+                ?: cells[8].text().trim().substringBefore(":").trim().toIntOrNull()
                 ?: 0
 
             // click-tt uses "Relegation" as the alt text for the promotion (upward) zone arrow —
@@ -205,6 +205,19 @@ class ClickTTParser {
      * Parses the full match schedule (Spielplan) from a click-tt group page
      * requested with displayDetail=meetings.
      *
+     * The schedule table has 13 columns (0-indexed):
+     *   0  day name "Sa."       — OR td.tabelle-rowspan on continuation rows
+     *   1  date "11.10.2025"    — OR td.tabelle-rowspan on continuation rows
+     *   2  time "14:00"         (nowrap)
+     *   3  Spiellokal link "(2)"(center+nowrap)
+     *   4  round number "1"
+     *   5  home team name       (nowrap)
+     *   6  home winner icon
+     *   7  away team name       (nowrap)
+     *   8  away winner icon
+     *   9  score / meeting link (center+nowrap) — e.g. "6:2" when completed
+     *   10+ additional cells (unused)
+     *
      * Date rows introduce a new date/time context that carries forward to all
      * subsequent rows in the same date block (marked by td.tabelle-rowspan placeholders).
      */
@@ -214,40 +227,28 @@ class ClickTTParser {
         var currentDate = ""
         var currentTime: String? = null
 
-        val dateRegex = Regex("""^\d{2}\.\d{2}\.\d{4}$""")
-        val timeRegex = Regex("""^\d{2}:\d{2}$""")
-
         for (row in doc.select("table.result-set tbody tr")) {
             val cells = row.select("td")
-            if (cells.isEmpty()) continue
+            if (cells.size < 10) continue
 
-            // A row that does NOT start with td.tabelle-rowspan introduces a new date group.
+            // A row NOT starting with td.tabelle-rowspan sets a new date/time context.
             if (!cells[0].hasClass("tabelle-rowspan")) {
-                for (cell in cells) {
-                    val text = cell.text().trim()
-                    when {
-                        text.matches(dateRegex) -> currentDate = text
-                        text.matches(timeRegex) -> currentTime = text
-                    }
-                }
+                currentDate = cells[1].text().trim()
+                val timeText = cells[2].text().trim().substringBefore("\u00a0").substringBefore(" ").trim()
+                if (timeText.matches(Regex("""\d{2}:\d{2}"""))) currentTime = timeText
             }
 
-            // Every data row (date-setter or continuation) contains team names and optionally a score link.
-            // Team name cells are marked with nowrap in the schedule table.
-            val teamCells = cells.filter { it.hasAttr("nowrap") }
-            if (teamCells.size < 2) continue
+            val homeTeamName = cells[5].text().trim().takeIf { it.isNotBlank() } ?: continue
+            val awayTeamName = cells[7].text().trim().takeIf { it.isNotBlank() } ?: continue
 
-            val homeTeamName = teamCells[0].text().trim().takeIf { it.isNotBlank() } ?: continue
-            val awayTeamName = teamCells[1].text().trim().takeIf { it.isNotBlank() } ?: continue
-
-            val scoreLink = row.selectFirst("a[href*='groupMeetingReport']")
+            val scoreLink = cells[9].selectFirst("a[href*='groupMeetingReport']")
             val meetingId = scoreLink?.attr("href")?.let { extractParam(it, "meeting")?.toIntOrNull() }
             val scoreText = scoreLink?.text()?.trim()
             val homeScore = scoreText?.substringBefore(":")?.trim()?.toIntOrNull()
             val awayScore = scoreText?.substringAfter(":")?.trim()?.toIntOrNull()
             val status    = if (meetingId != null) MatchStatus.COMPLETED else MatchStatus.SCHEDULED
 
-            if (currentDate.isEmpty()) continue   // Shouldn't happen but guard against malformed HTML
+            if (currentDate.isEmpty()) continue   // Guard against malformed HTML
 
             result += ParsedClickTTMatch(
                 meetingId    = meetingId,
