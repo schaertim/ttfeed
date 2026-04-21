@@ -4,14 +4,6 @@ import kotlinx.serialization.Serializable
 
 
 @Serializable
-data class DivisionResponse(
-    val id: String,
-    val name: String,
-    val federation: String,
-    val season: String,
-)
-
-@Serializable
 data class TeamSummaryResponse(
     val id: String,
     val name: String,
@@ -33,6 +25,8 @@ data class TeamPlayerResponse(
 data class GroupResponse(
     val id: String,
     val name: String,
+    val federation: String,
+    val season: String,
     val promotionSpots: Int?,
     val relegationSpots: Int?,
 )

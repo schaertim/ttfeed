@@ -9,22 +9,31 @@ import io.ktor.server.routing.*
 
 fun Route.groupRoutes() {
     route("/groups") {
+        get {
+            val league  = call.request.queryParameters["league"]
+            val season  = call.request.queryParameters["season"]
+            val groups  = GroupService.getAll(league, season)
+            call.respond(groups)
+        }
+
         get("/{id}") {
-            val id = call.parameters["id"]
+            val id    = call.parameters["id"]
                 ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing group id")
             val group = GroupService.getById(id)
                 ?: return@get call.respond(HttpStatusCode.NotFound, "Group not found")
             call.respond(group)
         }
+
         get("/{id}/standings") {
-            val id = call.parameters["id"]
+            val id       = call.parameters["id"]
                 ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing group id")
             val standings = StandingsService.getForGroup(id)
                 ?: return@get call.respond(HttpStatusCode.NotFound, "Group not found")
             call.respond(standings)
         }
+
         get("/{id}/matches") {
-            val id = call.parameters["id"]
+            val id      = call.parameters["id"]
                 ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing group id")
             val matches = MatchService.getForGroup(id)
                 ?: return@get call.respond(HttpStatusCode.NotFound, "Group not found")

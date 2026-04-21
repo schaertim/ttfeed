@@ -18,17 +18,10 @@ object Federations : Table("federation") {
     override val primaryKey = PrimaryKey(id)
 }
 
-object Divisions : Table("division") {
-    val id            = uuid("id").autoGenerate()
-    val federationId  = uuid("federation_id").references(Federations.id)
-    val seasonId      = uuid("season_id").references(Seasons.id)
-    val name          = varchar("name", 100)
-    override val primaryKey = PrimaryKey(id)
-}
-
 object Groups : Table("division_group") {
     val id              = uuid("id").autoGenerate()
-    val divisionId      = uuid("division_id").references(Divisions.id)
+    val federationId    = uuid("federation_id").references(Federations.id)
+    val seasonId        = uuid("season_id").references(Seasons.id)
     val name            = varchar("name", 50)
     val knobGruppe      = integer("knob_gruppe").nullable()   // null for click-tt groups
     val clickttId       = integer("clicktt_id").nullable()    // null for knob groups
