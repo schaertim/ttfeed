@@ -84,10 +84,10 @@ class ClickTTMatchScraper(
                 .first()[Seasons.id]
 
             for (game in detail.games) {
-                val homePlayer1Id = upsertPlayer(game.homePersonId, game.homeName, game.homeKlass, match.homeTeamId, seasonId)
-                val homePlayer2Id = upsertPlayer(game.homePersonId2, game.homeName2, null, match.homeTeamId, seasonId)
-                val awayPlayer1Id = upsertPlayer(game.awayPersonId, game.awayName, game.awayKlass, match.awayTeamId, seasonId)
-                val awayPlayer2Id = upsertPlayer(game.awayPersonId2, game.awayName2, null, match.awayTeamId, seasonId)
+                val homePlayer1Id = upsertPlayer(game.homePersonId,  game.homeName,  game.homeKlass,  match.homeTeamId, seasonId)
+                val homePlayer2Id = upsertPlayer(game.homePersonId2, game.homeName2, game.homeKlass2, match.homeTeamId, seasonId)
+                val awayPlayer1Id = upsertPlayer(game.awayPersonId,  game.awayName,  game.awayKlass,  match.awayTeamId, seasonId)
+                val awayPlayer2Id = upsertPlayer(game.awayPersonId2, game.awayName2, game.awayKlass2, match.awayTeamId, seasonId)
 
                 Games.insertIgnore {
                     it[Games.matchId]       = match.matchId

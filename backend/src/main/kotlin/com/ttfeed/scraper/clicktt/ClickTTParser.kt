@@ -304,9 +304,16 @@ class ClickTTParser {
             val awayPersonId2 = awayLinks.getOrNull(1)?.attr("href")?.let { extractParam(it, "person")?.toIntOrNull() }
             val awayName2     = awayLinks.getOrNull(1)?.text()?.trim()?.takeIf { it.isNotBlank() }
 
-            // Klass is in cells[2] (home) and cells[4] (away)
-            val homeKlass = cells[2].text().trim().takeIf { it.isNotBlank() }
-            val awayKlass = cells[4].text().trim().takeIf { it.isNotBlank() }
+            // Klass is in cells[2] (home) and cells[4] (away).
+            // For singles: plain text e.g. "A19".
+            // For doubles: two values separated by <br> e.g. "A21\nA20" — use textNodes() to
+            // split them individually rather than .text() which joins with a space ("A21 A20").
+            val homeKlassNodes = cells[2].textNodes().map { it.text().trim() }.filter { it.isNotBlank() }
+            val homeKlass  = homeKlassNodes.getOrNull(0)
+            val homeKlass2 = homeKlassNodes.getOrNull(1)
+            val awayKlassNodes = cells[4].textNodes().map { it.text().trim() }.filter { it.isNotBlank() }
+            val awayKlass  = awayKlassNodes.getOrNull(0)
+            val awayKlass2 = awayKlassNodes.getOrNull(1)
 
             // --- Set scores (cells 5..9) ---
             val sets = mutableListOf<ParsedClickTTSet>()
@@ -339,11 +346,13 @@ class ClickTTParser {
                 homeKlass     = homeKlass,
                 homePersonId2 = homePersonId2,
                 homeName2     = homeName2,
+                homeKlass2    = homeKlass2,
                 awayPersonId  = awayPersonId,
                 awayName      = awayName,
                 awayKlass     = awayKlass,
                 awayPersonId2 = awayPersonId2,
                 awayName2     = awayName2,
+                awayKlass2    = awayKlass2,
                 homeSets      = homeSets,
                 awaySets      = awaySets,
                 result        = result,
