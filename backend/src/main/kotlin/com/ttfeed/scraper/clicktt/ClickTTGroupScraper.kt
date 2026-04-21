@@ -237,10 +237,11 @@ class ClickTTGroupScraper(
                     it[Matches.homeScore]      = match.homeScore?.toShort()
                     it[Matches.awayScore]      = match.awayScore?.toShort()
                     it[Matches.clickttMatchId] = match.meetingId
+                    it[Matches.round]          = match.round
                     it[Matches.status]         = match.status
                 }
             } else if (match.status == MatchStatus.COMPLETED && match.meetingId != null) {
-                // Match just finished — fill in score and meeting ID
+                // Match just finished — fill in score, meeting ID, and round
                 Matches.update({
                     (Matches.groupId    eq groupId) and
                     (Matches.homeTeamId eq homeTeamId) and
@@ -250,6 +251,7 @@ class ClickTTGroupScraper(
                     it[Matches.homeScore]      = match.homeScore?.toShort()
                     it[Matches.awayScore]      = match.awayScore?.toShort()
                     it[Matches.clickttMatchId] = match.meetingId
+                    it[Matches.round]          = match.round
                     it[Matches.status]         = MatchStatus.COMPLETED
                 }
             }

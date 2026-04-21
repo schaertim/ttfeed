@@ -240,6 +240,7 @@ class ClickTTParser {
 
             val homeTeamName = cells[5].text().trim().takeIf { it.isNotBlank() } ?: continue
             val awayTeamName = cells[7].text().trim().takeIf { it.isNotBlank() } ?: continue
+            val round        = cells[4].text().trim().takeIf { it.isNotBlank() }
 
             val scoreLink = cells[9].selectFirst("a[href*='groupMeetingReport']")
             val meetingId = scoreLink?.attr("href")?.let { extractParam(it, "meeting")?.toIntOrNull() }
@@ -254,6 +255,7 @@ class ClickTTParser {
                 meetingId    = meetingId,
                 date         = currentDate,
                 time         = currentTime,
+                round        = round,
                 homeTeamName = homeTeamName,
                 awayTeamName = awayTeamName,
                 homeScore    = homeScore,
