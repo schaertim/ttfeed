@@ -36,6 +36,38 @@ class ClickTTClient {
         return fetchWithRetry(url)
     }
 
+    /**
+     * Fetches the league overview page listing all groups for a championship.
+     * championship format: "{FEDERATION} {YY}/{YY}", e.g. "MTTV 25/26"
+     */
+    suspend fun fetchLeaguePage(championship: String): String {
+        val encoded = championship.replace("/", "%2F").replace(" ", "+")
+        return fetchWithRetry("$baseUrl/leaguePage?championship=$encoded&preferredLanguage=German")
+    }
+
+    /**
+     * Fetches a group page — either the standings view (default) or the full match schedule
+     * (displayDetail = "meetings").
+     */
+    suspend fun fetchGroupPage(championship: String, groupId: Int, displayDetail: String? = null): String {
+        val encoded = championship.replace("/", "%2F").replace(" ", "+")
+        val url = buildString {
+            append("$baseUrl/groupPage?championship=$encoded&group=$groupId&displayTyp=gesamt")
+            if (displayDetail != null) append("&displayDetail=$displayDetail")
+        }
+        return fetchWithRetry(url)
+    }
+
+    /**
+     * Fetches the individual match detail (Begegnungsbericht) page.
+     */
+    suspend fun fetchMatchDetail(meetingId: Int, championship: String, groupId: Int): String {
+        val encoded = championship.replace("/", "%2F").replace(" ", "+")
+        return fetchWithRetry(
+            "$baseUrl/groupMeetingReport?meeting=$meetingId&championship=$encoded&group=$groupId"
+        )
+    }
+
     private suspend fun fetchWithRetry(url: String, maxAttempts: Int = 3): String {
         delay(100)
         var lastException: Exception? = null

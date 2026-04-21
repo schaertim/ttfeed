@@ -1,85 +1,93 @@
-package com.ttfeed.scraper.knob
+package com.ttfeed.scraper.clicktt
 
 import com.ttfeed.database.*
 import com.ttfeed.model.MatchStatus
+import com.ttfeed.scraper.clicktt.ClickTTGroupScraper.Companion.toChampionship
+import com.ttfeed.scraper.knob.PLACEHOLDER_LICENCE_PREFIX
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insertIgnore
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.slf4j.LoggerFactory
 import java.util.*
 
-class MatchScraper(
-    private val client: KnobClient,
-    private val parser: KnobParser
+class ClickTTMatchScraper(
+    private val client: ClickTTClient,
+    private val parser: ClickTTParser
 ) {
-    private val logger = LoggerFactory.getLogger(MatchScraper::class.java)
+    private val logger = LoggerFactory.getLogger(ClickTTMatchScraper::class.java)
 
+    /**
+     * Finds all completed click-tt matches that have no game rows yet and scrapes their details.
+     */
     suspend fun run() {
         val matches = transaction {
             (Matches innerJoin Groups innerJoin Divisions innerJoin Federations innerJoin Seasons)
                 .select(
                     Matches.id,
-                    Matches.knobMatchId,
+                    Matches.clickttMatchId,
                     Matches.homeTeamId,
                     Matches.awayTeamId,
                     Matches.playedAt,
-                    Groups.knobGruppe,
+                    Groups.clickttId,
                     Federations.name,
-                    Seasons.id,
                     Seasons.name
                 )
                 .where {
-                    (Matches.status eq MatchStatus.COMPLETED) and
-                            (Matches.knobMatchId.isNotNull()) and
-                            (Groups.knobGruppe.isNotNull()) and
-                            (Matches.id notInSubQuery Games.select(Games.matchId).withDistinct())
+                    (Matches.status         eq MatchStatus.COMPLETED) and
+                    (Matches.clickttMatchId.isNotNull()) and
+                    (Groups.clickttId.isNotNull()) and
+                    (Matches.id notInSubQuery Games.select(Games.matchId).withDistinct())
                 }
                 .map {
                     MatchToScrape(
-                        matchId     = it[Matches.id],
-                        knobMatchId = it[Matches.knobMatchId]!!,
-                        homeTeamId  = it[Matches.homeTeamId],
-                        awayTeamId  = it[Matches.awayTeamId],
-                        playedAt    = it[Matches.playedAt],
-                        knobGruppe  = it[Groups.knobGruppe]!!,
-                        rvid        = FEDERATION_RVIDS[it[Federations.name]],
-                        seasonId    = it[Seasons.id],
-                        season      = it[Seasons.name]
+                        matchId        = it[Matches.id],
+                        clickttMatchId = it[Matches.clickttMatchId]!!,
+                        clickttGroupId = it[Groups.clickttId]!!,
+                        homeTeamId     = it[Matches.homeTeamId],
+                        awayTeamId     = it[Matches.awayTeamId],
+                        playedAt       = it[Matches.playedAt],
+                        federationName = it[Federations.name],
+                        season         = it[Seasons.name]
                     )
                 }
         }
 
-        logger.info("MatchScraper: ${matches.size} completed matches without game details")
+        logger.info("ClickTTMatchScraper: ${matches.size} completed matches without game details")
 
         for ((index, match) in matches.withIndex()) {
             try {
                 scrapeMatch(match)
-                if (index % 100 == 0) {
+                if (index % 50 == 0) {
                     logger.info("Progress: $index / ${matches.size} matches scraped")
                 }
             } catch (e: Exception) {
-                logger.error("Failed matchId=${match.knobMatchId} gruppe=${match.knobGruppe}: ${e.message}")
+                logger.error("Failed meetingId=${match.clickttMatchId}: ${e.message}")
             }
         }
 
-        logger.info("MatchScraper complete")
+        logger.info("ClickTTMatchScraper complete")
     }
 
     private suspend fun scrapeMatch(match: MatchToScrape) {
-        val html   = client.fetchMatchDetail(match.knobGruppe, match.knobMatchId, match.season, match.rvid)
-        val detail = parser.parseMatchDetail(html, match.knobMatchId)
+        val championship = toChampionship(match.federationName, match.season)
+        val html   = client.fetchMatchDetail(match.clickttMatchId, championship, match.clickttGroupId)
+        val detail = parser.parseClickTTMatchDetail(html, match.clickttMatchId)
 
         if (detail.games.isEmpty()) {
-            logger.debug("No games found for matchId=${match.knobMatchId}")
+            logger.debug("No games found for meetingId=${match.clickttMatchId}")
             return
         }
 
         transaction {
+            val seasonId = Seasons.select(Seasons.id)
+                .where { Seasons.name eq match.season }
+                .first()[Seasons.id]
+
             for (game in detail.games) {
-                val homePlayer1Id = upsertPlayer(game.homePlayer1KnobId, game.homePlayer1Name, game.homePlayer1Klass, match.homeTeamId, match.seasonId)
-                val homePlayer2Id = upsertPlayer(game.homePlayer2KnobId, game.homePlayer2Name, null, match.homeTeamId, match.seasonId)
-                val awayPlayer1Id = upsertPlayer(game.awayPlayer1KnobId, game.awayPlayer1Name, game.awayPlayer1Klass, match.awayTeamId, match.seasonId)
-                val awayPlayer2Id = upsertPlayer(game.awayPlayer2KnobId, game.awayPlayer2Name, null, match.awayTeamId, match.seasonId)
+                val homePlayer1Id = upsertPlayer(game.homePersonId, game.homeName, game.homeKlass, match.homeTeamId, seasonId)
+                val homePlayer2Id = upsertPlayer(game.homePersonId2, game.homeName2, null, match.homeTeamId, seasonId)
+                val awayPlayer1Id = upsertPlayer(game.awayPersonId, game.awayName, game.awayKlass, match.awayTeamId, seasonId)
+                val awayPlayer2Id = upsertPlayer(game.awayPersonId2, game.awayName2, null, match.awayTeamId, seasonId)
 
                 Games.insertIgnore {
                     it[Games.matchId]       = match.matchId
@@ -97,8 +105,8 @@ class MatchScraper(
 
                 val gameId = Games.select(Games.id)
                     .where {
-                        (Games.matchId eq match.matchId) and
-                                (Games.orderInMatch eq game.orderInMatch.toShort())
+                        (Games.matchId      eq match.matchId) and
+                        (Games.orderInMatch eq game.orderInMatch.toShort())
                     }
                     .firstOrNull()?.get(Games.id) ?: continue
 
@@ -113,17 +121,24 @@ class MatchScraper(
             }
         }
 
-        logger.debug("Scraped ${detail.games.size} games for matchId=${match.knobMatchId}")
+        logger.debug("Scraped ${detail.games.size} games for meetingId=${match.clickttMatchId}")
     }
 
     /**
-     * Returns the player's UUID, inserting a new player and player_season record if the knobId
-     * is not yet in the database. This ensures match detail scraping never produces null player
-     * references — players who only appear as substitutes or guests are created on the fly.
+     * Looks up a player by their click-tt person ID (primary) or name (fallback).
+     * Creates the player and player_season record if they don't exist yet.
+     * Names from click-tt are in "Lastname, Firstname" format — stored as-is since the
+     * backfill job uses the same format when it links click-tt data to existing players.
      */
-    private fun upsertPlayer(knobId: Int?, name: String?, klass: String?, teamId: UUID, seasonId: UUID): UUID? {
-        if (knobId == null) {
-            // Doubles player 2 with no gid on the page — look up by name as a best-effort fallback
+    private fun upsertPlayer(
+        personId: Int?,
+        name: String?,
+        klass: String?,
+        teamId: UUID,
+        seasonId: UUID
+    ): UUID? {
+        if (personId == null) {
+            // Doubles player with no personId — try name lookup as a best-effort fallback
             name ?: return null
             return Players.select(Players.id)
                 .where { Players.fullName eq name }
@@ -139,19 +154,21 @@ class MatchScraper(
         }
 
         val existing = Players.select(Players.id)
-            .where { Players.knobId eq knobId }
+            .where { Players.clickttId eq personId }
             .firstOrNull()
 
         val playerId = if (existing != null) {
             existing[Players.id]
         } else {
+            // New player — create a placeholder licence until the backfill job links their STT number
+            val placeholderLicence = "${PLACEHOLDER_LICENCE_PREFIX}ct$personId"
             Players.insertIgnore {
-                it[Players.knobId]    = knobId
-                it[Players.fullName]  = name ?: "Unknown"
-                it[Players.licenceNr] = "$PLACEHOLDER_LICENCE_PREFIX$knobId"
+                it[Players.clickttId]  = personId
+                it[Players.fullName]   = name ?: "Unknown"
+                it[Players.licenceNr]  = placeholderLicence
             }
             Players.select(Players.id)
-                .where { Players.knobId eq knobId }
+                .where { Players.clickttId eq personId }
                 .first()[Players.id]
         }
 
@@ -167,13 +184,12 @@ class MatchScraper(
 
     private data class MatchToScrape(
         val matchId: UUID,
-        val knobMatchId: Int,
+        val clickttMatchId: Int,
+        val clickttGroupId: Int,
         val homeTeamId: UUID,
         val awayTeamId: UUID,
         val playedAt: java.time.OffsetDateTime?,
-        val knobGruppe: Int,
-        val rvid: Int?,
-        val seasonId: UUID,
+        val federationName: String,
         val season: String
     )
 }

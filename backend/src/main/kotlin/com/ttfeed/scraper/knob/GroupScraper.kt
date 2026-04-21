@@ -37,7 +37,7 @@ class GroupScraper(
         }
     }
 
-    suspend fun run(seasons: List<String> = generateSeasons(fromYear = 1989, toYear = 2025)) {
+    suspend fun run(seasons: List<String> = generateSeasons(fromYear = 1989, toYear = 2024)) {
         // Ensure all federations exist before scraping begins
         transaction {
             FEDERATION_RVIDS.keys.forEach { upsertFederation(it) }
