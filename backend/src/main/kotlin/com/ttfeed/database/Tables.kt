@@ -77,7 +77,7 @@ object PlayerSeasons : Table("player_season") {
     val playerId = uuid("player_id").references(Players.id)
     val teamId   = uuid("team_id").references(Teams.id)
     val seasonId = uuid("season_id").references(Seasons.id)
-    val klass    = varchar("klass", 20).nullable()
+    val klass    = varchar("klass", 5).nullable()
     override val primaryKey = PrimaryKey(id)
 }
 
