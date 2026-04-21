@@ -71,12 +71,14 @@ data class ParsedClickTTGame(
     val homeKlass: String?,
     val homePersonId2: Int?,    // doubles player 2 only
     val homeName2: String?,
+    val homeKlass2: String?,    // doubles player 2 only
     // Away side
     val awayPersonId: Int?,
     val awayName: String?,
     val awayKlass: String?,
     val awayPersonId2: Int?,    // doubles player 2 only
     val awayName2: String?,
+    val awayKlass2: String?,    // doubles player 2 only
     // Result
     val homeSets: Int?,
     val awaySets: Int?,
