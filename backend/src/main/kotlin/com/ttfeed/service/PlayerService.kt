@@ -68,8 +68,8 @@ object PlayerService {
 
     suspend fun getAllLicensedPlayers(): List<Pair<UUID, String>> = dbQuery {
         Players.select(Players.id, Players.licenceNr)
-            .where { Players.licenceNr notLike "knob:%" }
-            .map { it[Players.id] to it[Players.licenceNr] }
+            .where { Players.licenceNr.isNotNull() }
+            .map { it[Players.id] to it[Players.licenceNr]!! }
     }
 
     suspend fun saveBaseElo(playerId: UUID, seasonId: UUID, eloValue: Int) = dbQuery {
@@ -108,9 +108,9 @@ object PlayerService {
     suspend fun getPlayersMissingClickTtId(): List<Pair<UUID, String>> = dbQuery {
         Players.select(Players.id, Players.licenceNr)
             .where {
-                Players.clickttId.isNull() and (Players.licenceNr notLike "knob:%")
+                Players.clickttId.isNull() and Players.licenceNr.isNotNull()
             }
-            .map { it[Players.id] to it[Players.licenceNr] }
+            .map { it[Players.id] to it[Players.licenceNr]!! }
     }
 
     suspend fun updateClickTtIdsBatch(mappings: Map<String, Int>) {

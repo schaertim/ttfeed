@@ -1,0 +1,1 @@
+ALTER TABLE player ALTER COLUMN licence_nr DROP NOT NULL;

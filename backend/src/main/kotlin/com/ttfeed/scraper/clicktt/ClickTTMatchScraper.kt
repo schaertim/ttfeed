@@ -3,7 +3,6 @@ package com.ttfeed.scraper.clicktt
 import com.ttfeed.database.*
 import com.ttfeed.model.MatchStatus
 import com.ttfeed.scraper.clicktt.ClickTTGroupScraper.Companion.toChampionship
-import com.ttfeed.scraper.knob.PLACEHOLDER_LICENCE_PREFIX
 import org.jetbrains.exposed.sql.and
 import org.jetbrains.exposed.sql.insertIgnore
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -160,12 +159,9 @@ class ClickTTMatchScraper(
         val playerId = if (existing != null) {
             existing[Players.id]
         } else {
-            // New player — create a placeholder licence until the backfill job links their STT number
-            val placeholderLicence = "${PLACEHOLDER_LICENCE_PREFIX}ct$personId"
             Players.insertIgnore {
-                it[Players.clickttId]  = personId
-                it[Players.fullName]   = name ?: "Unknown"
-                it[Players.licenceNr]  = placeholderLicence
+                it[Players.clickttId] = personId
+                it[Players.fullName]  = name ?: "Unknown"
             }
             Players.select(Players.id)
                 .where { Players.clickttId eq personId }

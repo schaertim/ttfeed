@@ -32,8 +32,7 @@ fun Route.playerRoutes() {
             val player = PlayerService.getById(id)
                 ?: return@get call.respond(HttpStatusCode.NotFound, "Player not found")
 
-            // Trigger a background click-tt sync for real licensed players (not knob placeholders)
-            val shouldSync = !player.licenceNr.startsWith("knob:")
+            val shouldSync = player.licenceNr != null
             if (shouldSync) {
                 // Scoped to the application lifecycle — cancelled cleanly on shutdown
                 call.application.launch(Dispatchers.IO) {

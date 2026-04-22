@@ -16,7 +16,7 @@ data class TeamSummaryResponse(
 data class TeamPlayerResponse(
     val id: String,
     val fullName: String,
-    val licenceNr: String,
+    val licenceNr: String?,
     val wins: Int,
     val losses: Int
 )
@@ -108,7 +108,7 @@ data class FederationResponse(
 data class PlayerResponse(
     val id: String,
     val fullName: String,
-    val licenceNr: String,
+    val licenceNr: String?,
     val currentClubName: String? = null,
     val klass: String? = null,
     val currentElo: Int? = null,

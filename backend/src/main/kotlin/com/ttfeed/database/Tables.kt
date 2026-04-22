@@ -65,7 +65,7 @@ object Teams : Table("team") {
 
 object Players : Table("player") {
     val id        = uuid("id").autoGenerate()
-    val licenceNr = varchar("licence_nr", 20).uniqueIndex()
+    val licenceNr = varchar("licence_nr", 20).nullable().uniqueIndex()
     val knobId    = integer("knob_id").nullable().uniqueIndex()
     val clickttId = integer("clicktt_id").nullable().uniqueIndex()
     val fullName  = varchar("full_name", 100)

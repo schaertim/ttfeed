@@ -24,10 +24,10 @@ class ClickTTGroupScraper(
      * Scrapes all federations for the given season.
      * Season format: "2025/2026" → championship "MTTV 25/26" etc.
      */
-    suspend fun run(season: String = "2025/2026") {
-        logger.info("ClickTTGroupScraper: starting season $season")
+    suspend fun run(season: String = "2025/2026", federations: Collection<String> = FEDERATION_RVIDS.keys) {
+        logger.info("ClickTTGroupScraper: starting season $season (federations: ${federations.joinToString()})")
 
-        for (federationName in FEDERATION_RVIDS.keys) {
+        for (federationName in federations) {
             val championship = toChampionship(federationName, season)
             try {
                 scrapeFederation(championship, federationName, season)

@@ -146,9 +146,8 @@ class MatchScraper(
             existing[Players.id]
         } else {
             Players.insertIgnore {
-                it[Players.knobId]    = knobId
-                it[Players.fullName]  = name ?: "Unknown"
-                it[Players.licenceNr] = "$PLACEHOLDER_LICENCE_PREFIX$knobId"
+                it[Players.knobId]   = knobId
+                it[Players.fullName] = name ?: "Unknown"
             }
             Players.select(Players.id)
                 .where { Players.knobId eq knobId }

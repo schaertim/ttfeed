@@ -1,6 +1,13 @@
 package com.ttfeed.scraper.knob
 
 class BackfillScraper(client: KnobClient, parser: KnobParser) {
+    companion object {
+        fun create(): BackfillScraper {
+            val client = KnobClient()
+            val parser = KnobParser()
+            return BackfillScraper(client, parser)
+        }
+    }
     private val groupScraper   = GroupScraper(client, parser)
     private val matchScraper   = MatchScraper(client, parser)
     private val licenceScraper = OverallPlayerScraper(client, parser)

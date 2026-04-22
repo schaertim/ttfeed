@@ -26,7 +26,7 @@ class OverallPlayerScraper(
         // License lives on the player row, not on player_season, so no season scoping needed.
         // After the GroupScraper phase 1 fix, DB names are already clean (no age suffixes),
         // so a direct name lookup is sufficient.
-        val existingPlayers: Map<String, Pair<String, UUID>> = transaction {
+        val existingPlayers: Map<String, Pair<String?, UUID>> = transaction {
             Players.select(Players.id, Players.fullName, Players.licenceNr)
                 .associate { row ->
                     row[Players.fullName] to Pair(row[Players.licenceNr], row[Players.id])
@@ -73,7 +73,7 @@ class OverallPlayerScraper(
                 if (match != null) {
                     val (currentLicence, playerId) = match
                     // Only update if still a placeholder and the license isn't already taken
-                    if (currentLicence.startsWith(PLACEHOLDER_LICENCE_PREFIX)) {
+                    if (currentLicence == null) {
                         val licenceTaken = Players.select(Players.id)
                             .where { Players.licenceNr eq player.licenceNr }
                             .firstOrNull() != null

@@ -69,7 +69,7 @@ class ClickTTClient {
     }
 
     private suspend fun fetchWithRetry(url: String, maxAttempts: Int = 3): String {
-        delay(100)
+        delay(10)
         var lastException: Exception? = null
         repeat(maxAttempts) { attempt ->
             try {

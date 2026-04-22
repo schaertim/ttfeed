@@ -1,8 +1,5 @@
 package com.ttfeed.scraper.knob
 
-/** Prefix used as a placeholder licence number until a real STT licence is scraped. */
-const val PLACEHOLDER_LICENCE_PREFIX = "knob:"
-
 /**
  * Maps league names to their knob.ch rvid parameter.
  * STT has no rvid (null) — it is the default national league.
