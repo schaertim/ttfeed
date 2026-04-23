@@ -51,7 +51,13 @@ class GroupScraper(
             val seasonYear = season.substringBefore("/").toInt()
             logger.info("Season $season — gruppe range $range")
 
-            for ((leagueName, rvid) in FEDERATION_RVIDS) {
+            // Regional federations were introduced in 2011/12 — only run STT for earlier seasons
+            val federationsToRun = if (seasonYear < 2011)
+                FEDERATION_RVIDS.filter { it.value == null }
+            else
+                FEDERATION_RVIDS
+
+            for ((leagueName, rvid) in federationsToRun) {
                 runPass(season, seasonYear, leagueName = leagueName, rvid = rvid, range = range)
             }
         }
