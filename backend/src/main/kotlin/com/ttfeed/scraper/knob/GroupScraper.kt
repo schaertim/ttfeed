@@ -51,8 +51,9 @@ class GroupScraper(
             val seasonYear = season.substringBefore("/").toInt()
             logger.info("Season $season — gruppe range $range")
 
-            // TODO: temporary — only scraping MTTV to validate parsing accuracy before full run
-            runPass(season, seasonYear, leagueName = "MTTV", rvid = 5, range = range)
+            for ((leagueName, rvid) in FEDERATION_RVIDS) {
+                runPass(season, seasonYear, leagueName = leagueName, rvid = rvid, range = range)
+            }
         }
 
         logger.info("GroupScraper complete")
