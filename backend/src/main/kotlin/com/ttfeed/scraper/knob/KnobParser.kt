@@ -4,6 +4,7 @@ import com.ttfeed.model.GameResult
 import com.ttfeed.model.GameType
 import com.ttfeed.model.MatchStatus
 import com.ttfeed.scraper.knob.model.*
+import com.ttfeed.util.normalizeKnobName
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -207,7 +208,7 @@ class KnobParser {
                     ?: return@mapNotNull null
 
                 ParsedPlayer(
-                    fullName = playerLink.text().trim(),
+                    fullName = normalizeKnobName(playerLink.text()),
                     knobId = knobId,
                     klass = cells[3].text().trim(),
                     knobClubId = clubId,
@@ -428,13 +429,13 @@ class KnobParser {
             .mapNotNull { row ->
                 val cells    = row.select("td")
                 if (cells.size < 2) return@mapNotNull null
-                val fullName = cells[0].text().trim()
-                if (fullName.isBlank()) return@mapNotNull null
+                val rawName = cells[0].text().trim()
+                if (rawName.isBlank()) return@mapNotNull null
                 val licence  = cells[1].text().trim()
                 if (licence.isBlank() || licence == "-" || licence == "0" || licence.contains("nicht")) {
                     return@mapNotNull null
                 }
-                ParsedLicensedPlayer(fullName = fullName, licenceNr = licence)
+                ParsedLicensedPlayer(fullName = normalizeKnobName(rawName), licenceNr = licence)
             }
     }
 

@@ -13,7 +13,7 @@
 
 	const completedMatches = $derived(
 		data.matches
-			.filter((m: Match) => m.status === 'completed')
+			.filter((m: Match) => m.status === 'COMPLETED')
 			.sort((a: Match, b: Match) =>
 				(b.round ?? '0').localeCompare(a.round ?? '0', undefined, { numeric: true })
 			)
@@ -21,7 +21,7 @@
 
 	const scheduledMatches = $derived(
 		data.matches
-			.filter((m: Match) => m.status === 'scheduled')
+			.filter((m: Match) => m.status === 'SCHEDULED')
 			.sort((a: Match, b: Match) =>
 				(a.round ?? '0').localeCompare(b.round ?? '0', undefined, { numeric: true })
 			)
@@ -77,15 +77,10 @@
 				<Table.Body>
 					{#each sorted as row (row.teamId)}
 						{@const z = zone(row.position)}
-						<Table.Row class="border-border relative">
-							{#if z === 'promotion'}
-								<td class="absolute left-0 top-0 bottom-0 w-0.75 bg-win" aria-hidden="true"></td>
-							{:else if z === 'relegation'}
-								<td class="absolute left-0 top-0 bottom-0 w-0.75 bg-loss" aria-hidden="true"></td>
-							{/if}
-
+						<Table.Row class="border-border">
 							<Table.Cell
-								class="pl-5 font-bold tabular-nums"
+								class="pl-4 font-bold tabular-nums border-l-2
+								{z === 'promotion' ? 'border-l-win' : z === 'relegation' ? 'border-l-loss' : 'border-l-transparent'}"
 							>
 								{row.position}
 							</Table.Cell>

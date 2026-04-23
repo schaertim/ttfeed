@@ -65,9 +65,9 @@
 				<Table.Root>
 					<Table.Body>
 						{#each roster as player}
-							<Table.Row class="border-border/40">
+							<Table.Row class="border-border/40 hover:bg-accent transition-colors">
 								<Table.Cell class="py-3 pl-4">
-									<div class="font-semibold text-sm">{player.fullName}</div>
+									<a href="/players/{player.id}" class="hover:underline text-primary font-semibold text-sm">{player.fullName}</a>
 									<div class="text-[10px] text-muted-foreground uppercase">{player.licenceNr}</div>
 								</Table.Cell>
 								<Table.Cell class="py-3 text-right pr-4">

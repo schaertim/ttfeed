@@ -89,6 +89,7 @@
 			{:else}
 				<div class="space-y-3">
 					{#each searchResults as player (player.id)}
+						<a href="/players/{player.id}">
 						<Card.Root class="p-4 flex items-center justify-between hover:bg-accent transition-colors cursor-pointer">
 							<div class="flex items-center gap-4">
 								<Avatar.Root class="w-10 h-10 border border-border bg-primary/10 text-primary">
@@ -113,6 +114,7 @@
 								</div>
 							</div>
 						</Card.Root>
+						</a>
 					{/each}
 				</div>
 			{/if}

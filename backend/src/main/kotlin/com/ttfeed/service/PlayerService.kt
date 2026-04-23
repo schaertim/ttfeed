@@ -1,10 +1,12 @@
 package com.ttfeed.service
 
 import com.ttfeed.database.*
-import com.ttfeed.model.PagedResponse
-import com.ttfeed.model.PlayerResponse
+import com.ttfeed.model.*
+import com.ttfeed.util.normalizeClickTtName
 import com.ttfeed.util.toUuidOrNull
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.JoinType
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.util.*
@@ -14,10 +16,108 @@ object PlayerService {
     suspend fun getById(playerId: String): PlayerResponse? {
         val uuid = playerId.toUuidOrNull() ?: return null
         return dbQuery {
-            Players.select(Players.id, Players.fullName, Players.licenceNr)
+            val playerRow = Players.select(Players.id, Players.fullName, Players.licenceNr)
                 .where { Players.id eq uuid }
+                .firstOrNull() ?: return@dbQuery null
+
+            val seasonData = (PlayerSeasons innerJoin Teams innerJoin Clubs innerJoin Seasons)
+                .select(PlayerSeasons.klass, Clubs.name)
+                .where { PlayerSeasons.playerId eq uuid }
+                .orderBy(Seasons.name to SortOrder.DESC)
                 .firstOrNull()
-                ?.toPlayerResponse()
+
+            val currentElo = PlayerElos
+                .select(PlayerElos.eloValue)
+                .where { PlayerElos.playerId eq uuid }
+                .orderBy(PlayerElos.recordedAt to SortOrder.DESC)
+                .firstOrNull()
+                ?.get(PlayerElos.eloValue)
+
+            playerRow.toPlayerResponse(
+                currentClubName = seasonData?.get(Clubs.name),
+                klass           = seasonData?.get(PlayerSeasons.klass),
+                currentElo      = currentElo,
+            )
+        }
+    }
+
+    suspend fun getEloHistory(playerId: String): List<EloEntryResponse>? {
+        val uuid = playerId.toUuidOrNull() ?: return null
+        return dbQuery {
+            (PlayerElos innerJoin Seasons)
+                .select(PlayerElos.eloValue, PlayerElos.recordedAt, Seasons.name)
+                .where { PlayerElos.playerId eq uuid }
+                .orderBy(PlayerElos.recordedAt to SortOrder.ASC)
+                .map {
+                    EloEntryResponse(
+                        eloValue   = it[PlayerElos.eloValue],
+                        recordedAt = it[PlayerElos.recordedAt].toString(),
+                        seasonName = it[Seasons.name],
+                    )
+                }
+        }
+    }
+
+    suspend fun getMatchHistory(playerId: String): List<PlayerGameResponse>? {
+        val uuid = playerId.toUuidOrNull() ?: return null
+        return dbQuery {
+            val homeTeam   = Teams.alias("home_team")
+            val awayTeam   = Teams.alias("away_team")
+            val homePlayer = Players.alias("home_player")
+            val awayPlayer = Players.alias("away_player")
+
+            Games
+                .join(Matches,    JoinType.INNER, Games.matchId,       Matches.id)
+                .join(homeTeam,   JoinType.INNER, Matches.homeTeamId,  homeTeam[Teams.id])
+                .join(awayTeam,   JoinType.INNER, Matches.awayTeamId,  awayTeam[Teams.id])
+                .join(homePlayer, JoinType.LEFT,  Games.homePlayer1Id, homePlayer[Players.id])
+                .join(awayPlayer, JoinType.LEFT,  Games.awayPlayer1Id, awayPlayer[Players.id])
+                .select(
+                    Games.id,
+                    Games.homePlayer1Id,
+                    Games.homeSets,
+                    Games.awaySets,
+                    Games.result,
+                    Games.homePlayer1EloDelta,
+                    Games.awayPlayer1EloDelta,
+                    Matches.id,
+                    Matches.playedAt,
+                    Matches.homeScore,
+                    Matches.awayScore,
+                    Matches.round,
+                    Matches.status,
+                    homeTeam[Teams.name],
+                    awayTeam[Teams.name],
+                    homePlayer[Players.fullName],
+                    awayPlayer[Players.fullName],
+                )
+                .where {
+                    ((Games.homePlayer1Id eq uuid) or (Games.awayPlayer1Id eq uuid)) and
+                    (Games.gameType eq GameType.SINGLES)
+                }
+                .orderBy(Matches.playedAt to SortOrder.DESC)
+                .map { row ->
+                    val isHome = row[Games.homePlayer1Id] == uuid
+                    PlayerGameResponse(
+                        matchId      = row[Matches.id].toString(),
+                        gameId       = row[Games.id].toString(),
+                        playedAt     = row[Matches.playedAt]?.toString(),
+                        homeTeam     = row[homeTeam[Teams.name]],
+                        awayTeam     = row[awayTeam[Teams.name]],
+                        homeScore    = row[Matches.homeScore]?.toInt(),
+                        awayScore    = row[Matches.awayScore]?.toInt(),
+                        round        = row[Matches.round],
+                        status       = row[Matches.status],
+                        playerSide   = if (isHome) "home" else "away",
+                        opponentName = if (isHome) row[awayPlayer[Players.fullName]]
+                                       else        row[homePlayer[Players.fullName]],
+                        homeSets     = row[Games.homeSets]?.toInt(),
+                        awaySets     = row[Games.awaySets]?.toInt(),
+                        result       = row[Games.result],
+                        eloDelta     = if (isHome) row[Games.homePlayer1EloDelta]
+                                       else        row[Games.awayPlayer1EloDelta],
+                    )
+                }
         }
     }
 
@@ -88,13 +188,7 @@ object PlayerService {
     }
 
     suspend fun findPlayerIdByName(clickTtName: String): UUID? {
-        // click-tt names are formatted as "Lastname, Firstname" — normalise to "Lastname Firstname"
-        val parts = clickTtName.split(",")
-        val fullName = if (parts.size >= 2) {
-            "${parts[0].trim()} ${parts[1].trim()}".lowercase()
-        } else {
-            clickTtName.trim().lowercase()
-        }
+        val fullName = normalizeClickTtName(clickTtName).lowercase()
 
         return dbQuery {
             Players.select(Players.id)

@@ -4,6 +4,7 @@ import com.ttfeed.model.GameResult
 import com.ttfeed.model.GameType
 import com.ttfeed.model.MatchStatus
 import com.ttfeed.scraper.clicktt.model.*
+import com.ttfeed.util.normalizeClickTtName
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 
@@ -46,7 +47,7 @@ class ClickTTParser {
 
             val link     = cells[1].select("a[href*='person=']").firstOrNull() ?: continue
             val personId = link.attr("href").let { extractParam(it, "person") }?.toIntOrNull() ?: continue
-            val fullName = link.text().trim().takeIf { it.isNotBlank() } ?: continue
+            val fullName = normalizeClickTtName(link.text()).takeIf { it.isNotBlank() } ?: continue
             val licence  = cells[2].text().trim().takeIf { it.isNotBlank() } ?: continue
 
             members.add(ClickTTClubMember(licence = licence, personId = personId, fullName = fullName))

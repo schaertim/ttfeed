@@ -100,7 +100,7 @@
 						</span>
 						<Badge
 							variant="outline"
-							class="tabular-nums font-black {game.result === 'home' ? 'text-win border-win/30 bg-win/10' : game.result === 'away' ? 'text-loss border-loss/30 bg-loss/10' : 'text-muted-foreground'}"
+							class="tabular-nums font-black {game.result === 'HOME' ? 'text-win border-win/30 bg-win/10' : game.result === 'AWAY' ? 'text-loss border-loss/30 bg-loss/10' : 'text-muted-foreground'}"
 						>
 							{game.homeSets ?? 0}:{game.awaySets ?? 0}
 						</Badge>
@@ -108,19 +108,19 @@
 
 					<div class="space-y-2 mb-4">
 						<div class="flex justify-between items-center">
-							<span class="text-sm {game.result === 'home' ? 'font-bold' : 'text-muted-foreground'}">
+							<span class="text-sm {game.result === 'HOME' ? 'font-bold' : 'text-muted-foreground'}">
 								{game.homePlayerName ?? 'Unknown Player'}
 							</span>
-							{#if game.result === 'home'}
+							{#if game.result === 'HOME'}
 								<span class="material-symbols-outlined text-win text-sm">check_circle</span>
 							{/if}
 						</div>
 						<Separator class="bg-border/40" />
 						<div class="flex justify-between items-center">
-							<span class="text-sm {game.result === 'away' ? 'font-bold' : 'text-muted-foreground'}">
+							<span class="text-sm {game.result === 'AWAY' ? 'font-bold' : 'text-muted-foreground'}">
 								{game.awayPlayerName ?? 'Unknown Player'}
 							</span>
-							{#if game.result === 'away'}
+							{#if game.result === 'AWAY'}
 								<span class="material-symbols-outlined text-loss text-sm">check_circle</span>
 							{/if}
 						</div>
@@ -135,7 +135,7 @@
 								</Badge>
 							{/each}
 						</div>
-					{:else if data.match.status === 'completed'}
+					{:else if data.match.status === 'COMPLETED'}
 						<span class="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">No set data available</span>
 					{/if}
 				</Card.Root>

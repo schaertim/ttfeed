@@ -20,16 +20,11 @@ export type Federation = {
 	name: string;
 };
 
-export type Division = {
+export type Group = {
 	id: string;
 	name: string;
 	federation: string;
 	season: string;
-};
-
-export type Group = {
-	id: string;
-	name: string;
 	promotionSpots: number | null;
 	relegationSpots: number | null;
 };
@@ -102,6 +97,32 @@ export type Player = {
 	licenceNr: string;
 	currentClubName: string | null;
 	klass: string | null;
+	currentElo: number | null;
+	isSyncing: boolean;
+};
+
+export type EloEntry = {
+	eloValue: number;
+	recordedAt: string;
+	seasonName: string;
+};
+
+export type PlayerGame = {
+	matchId: string;
+	gameId: string;
+	playedAt: string | null;
+	homeTeam: string;
+	awayTeam: string;
+	homeScore: number | null;
+	awayScore: number | null;
+	round: string | null;
+	status: string;
+	playerSide: 'home' | 'away';
+	opponentName: string | null;
+	homeSets: number | null;
+	awaySets: number | null;
+	result: 'HOME' | 'AWAY' | 'NOT_PLAYED';
+	eloDelta: number | null;
 };
 
 export type PagedResponse<T> = {
@@ -124,20 +145,14 @@ export const api = {
 			get<Federation[]>('/federations'),
 	},
 
-	divisions: {
+	groups: {
 		list: (params?: { league?: string; season?: string }) => {
 			const qs = new URLSearchParams();
-			console.log(params?.season);
 			if (params?.league) qs.set('league', params.league);
 			if (params?.season) qs.set('season', params.season);
 			const query = qs.toString();
-			return get<Division[]>(`/divisions${query ? '?' + query : ''}`);
+			return get<Group[]>(`/groups${query ? '?' + query : ''}`);
 		},
-		groups: (divisionId: string) =>
-			get<Group[]>(`/divisions/${divisionId}/groups`),
-	},
-
-	groups: {
 		get: (groupId: string) =>
 			get<Group>(`/groups/${groupId}`),
 		standings: (groupId: string) =>
@@ -164,5 +179,9 @@ export const api = {
 			),
 		get: (playerId: string) =>
 			get<Player>(`/players/${playerId}`),
+		elo: (playerId: string) =>
+			get<EloEntry[]>(`/players/${playerId}/elo`),
+		matches: (playerId: string) =>
+			get<PlayerGame[]>(`/players/${playerId}/matches`),
 	},
 };

@@ -1,90 +1,56 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import type { Division, Group, Season } from '$lib/api';
+	import type { Group, Season } from '$lib/api';
 	import { api } from '$lib/api';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import * as Collapsible from '$lib/components/ui/collapsible/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
-	import { Input } from '$lib/components/ui/input/index.js';
 	import { Separator } from '$lib/components/ui/separator/index.js';
-	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { SvelteSet } from 'svelte/reactivity';
-	import {
-		MagnifyingGlass,
-		CaretDown,
-		CaretRight,
-		Star,
-		Globe,
-		MapPin,
-		TrendUp,
-		Clock
-	} from 'phosphor-svelte';
+	import { CaretDown, CaretRight, Star, Globe, MapPin, TrendUp, Clock } from 'phosphor-svelte';
 
 	let { data }: { data: PageData } = $props();
 
-	// Default to most recent season
 	let selectedSeasonId = $state(data.seasons[0]?.id ?? '');
 
-	const selectedSeason = $derived(
-		data.seasons.find((s: Season) => s.id === selectedSeasonId)
-	);
+	const selectedSeason = $derived(data.seasons.find((s: Season) => s.id === selectedSeasonId));
 
-	// Divisions loaded client-side when season changes
-	let divisions = $state<Division[]>([]);
-	let loadingDivisions = $state(false);
-
-	// Groups per division — keyed by division id
-	let groupsMap = $state<Record<string, Group[]>>({});
-	let loadingGroups = $state<Record<string, boolean>>({});
-
-	// Track which federations are expanded
+	let groups = $state<Group[]>([]);
+	let loadingGroups = $state(false);
 	let expandedFederations = $state<Set<string>>(new Set());
 
-	async function loadDivisions() {
-		loadingDivisions = true;
-		groupsMap = {};
+	async function loadGroups() {
+		loadingGroups = true;
 		expandedFederations = new SvelteSet();
 		try {
-			divisions = await api.divisions.list({ season: selectedSeason?.name });
+			groups = await api.groups.list({ season: selectedSeason?.name });
 		} finally {
-			loadingDivisions = false;
+			loadingGroups = false;
 		}
 	}
 
-	async function toggleFederation(federationId: string) {
+	function toggleFederation(federationId: string) {
 		if (expandedFederations.has(federationId)) {
 			expandedFederations.delete(federationId);
-			expandedFederations = new SvelteSet(expandedFederations);
 		} else {
 			expandedFederations.add(federationId);
-			expandedFederations = new SvelteSet(expandedFederations);
 		}
+		expandedFederations = new SvelteSet(expandedFederations);
 	}
 
-	async function loadGroups(divisionId: string) {
-		if (groupsMap[divisionId]) return; // already loaded
-		loadingGroups = { ...loadingGroups, [divisionId]: true };
-		try {
-			const groups = await api.divisions.groups(divisionId);
-			groupsMap = { ...groupsMap, [divisionId]: groups };
-		} finally {
-			const { [divisionId]: _, ...rest } = loadingGroups;
-			loadingGroups = rest;
-		}
-	}
-
-	// Divisions grouped by federation
-	const divisionsByFederation = $derived(
-		data.federations.map((fed) => ({
-			...fed,
-			divisions: divisions.filter((d) => d.federation === fed.name),
-		})).filter((fed) => fed.divisions.length > 0)
+	// Groups grouped by federation name
+	const groupsByFederation = $derived(
+		data.federations
+			.map((fed) => ({
+				...fed,
+				groups: groups.filter((g) => g.federation === fed.name)
+			}))
+			.filter((fed) => fed.groups.length > 0)
 	);
 
-	// Load divisions on mount and when season changes
 	$effect(() => {
-		loadDivisions();
+		loadGroups();
 	});
 </script>
 
@@ -151,28 +117,27 @@
 			<Separator class="flex-1 ml-4 bg-border/60" />
 		</div>
 
-		{#if loadingDivisions}
+		{#if loadingGroups}
 			<div class="space-y-2">
 				{#each [1, 2, 3] as i (i)}
 					<Skeleton class="h-16 w-full rounded-xl" />
 				{/each}
 			</div>
-		{:else if divisionsByFederation.length === 0}
+		{:else if groupsByFederation.length === 0}
 			<p class="text-center text-sm text-muted-foreground py-12">
-				No divisions found for this season
+				No groups found for this season
 			</p>
 		{:else}
 			<div class="space-y-2">
-				{#each divisionsByFederation as fed (fed.id)}
+				{#each groupsByFederation as fed (fed.id)}
 					<Collapsible.Root
 						open={expandedFederations.has(fed.id)}
 						onOpenChange={() => toggleFederation(fed.id)}
 						class="bg-card rounded-xl overflow-hidden ring-1 ring-border shadow-sm"
 					>
 						<Collapsible.Trigger
-							class="w-full flex items-center justify-between px-4 py-4
-                           hover:bg-accent transition-colors text-left
-                           {expandedFederations.has(fed.id) ? 'bg-secondary/10' : ''}"
+							class="w-full flex items-center justify-between px-4 py-4 hover:bg-accent transition-colors text-left
+							{expandedFederations.has(fed.id) ? 'bg-secondary/10' : ''}"
 						>
 							<div class="flex items-center gap-4">
 								{#if expandedFederations.has(fed.id)}
@@ -190,52 +155,14 @@
 						</Collapsible.Trigger>
 
 						<Collapsible.Content class="divide-y divide-border/40 bg-background/30">
-							{#each fed.divisions as division (division.id)}
-								<Collapsible.Root
-									open={!!groupsMap[division.id]}
-									onOpenChange={() => loadGroups(division.id)}
+							{#each fed.groups as group (group.id)}
+								<a
+									href="/groups/{group.id}"
+									class="flex items-center justify-between px-4 py-3 hover:bg-accent transition-colors group"
 								>
-									<Collapsible.Trigger
-										class="w-full flex items-center justify-between p-4
-                                       hover:bg-accent transition-colors text-left group"
-									>
-										<div class="flex items-center gap-4">
-											<Badge variant="secondary" class="text-[10px] font-black px-2 py-1 rounded w-12 justify-center">
-												{division.name.split(' ')[0] || 'LIG'}
-											</Badge>
-											<div>
-												<p class="text-sm font-bold">{division.name}</p>
-												<div class="flex gap-3 mt-1">
-													<span class="text-[10px] font-bold text-muted-foreground uppercase">-- Teams</span>
-													<span class="text-[10px] font-bold text-muted-foreground uppercase">Rd --/--</span>
-												</div>
-											</div>
-										</div>
-										{#if loadingGroups[division.id]}
-											<span class="text-xs text-muted-foreground">...</span>
-										{:else}
-											<CaretRight
-												class="w-5 h-5 text-muted-foreground transition-transform duration-200 group-hover:text-foreground
-												{groupsMap[division.id] ? 'rotate-90' : ''}"
-											/>
-										{/if}
-									</Collapsible.Trigger>
-
-									<Collapsible.Content class="bg-background/60 divide-y divide-border/40">
-										{#if groupsMap[division.id]}
-											{#each groupsMap[division.id] as group (group.id)}
-												<a
-													href="/groups/{group.id}"
-													class="flex items-center justify-between px-4 py-3 pl-[4.5rem]
-                                                   hover:bg-accent transition-colors"
-												>
-													<span class="text-sm font-medium">{group.name}</span>
-													<CaretRight class="w-4 h-4 text-muted-foreground" />
-												</a>
-											{/each}
-										{/if}
-									</Collapsible.Content>
-								</Collapsible.Root>
+									<span class="text-sm font-medium">{group.name}</span>
+									<CaretRight class="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+								</a>
 							{/each}
 						</Collapsible.Content>
 					</Collapsible.Root>

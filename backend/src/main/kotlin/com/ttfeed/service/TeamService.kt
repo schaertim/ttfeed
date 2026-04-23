@@ -2,6 +2,7 @@ package com.ttfeed.service
 
 import com.ttfeed.database.*
 import com.ttfeed.model.GameResult
+import com.ttfeed.model.GameType
 import com.ttfeed.model.MatchResponse
 import com.ttfeed.model.TeamPlayerResponse
 import com.ttfeed.model.TeamSummaryResponse
@@ -44,30 +45,61 @@ object TeamService {
         return dbQuery {
             if (Teams.selectAll().where { Teams.id eq uuid }.empty()) return@dbQuery null
 
-            (Players innerJoin PlayerSeasons)
+            val playerRows = (Players innerJoin PlayerSeasons)
                 .selectAll()
                 .where { PlayerSeasons.teamId eq uuid }
-                .map { playerRow ->
-                    val pId = playerRow[Players.id]
+                .toList()
 
-                    val wins = Games.selectAll().where {
-                        ((Games.homePlayer1Id eq pId) and (Games.result eq GameResult.HOME)) or
-                                ((Games.awayPlayer1Id eq pId) and (Games.result eq GameResult.AWAY))
-                    }.count().toInt()
+            if (playerRows.isEmpty()) return@dbQuery emptyList()
 
-                    val losses = Games.selectAll().where {
-                        ((Games.homePlayer1Id eq pId) and (Games.result eq GameResult.AWAY)) or
-                                ((Games.awayPlayer1Id eq pId) and (Games.result eq GameResult.HOME))
-                    }.count().toInt()
+            val playerIds = playerRows.map { it[Players.id] }.toSet()
 
-                    TeamPlayerResponse(
-                        id        = pId.toString(),
-                        fullName  = playerRow[Players.fullName],
-                        licenceNr = playerRow[Players.licenceNr],
-                        wins      = wins,
-                        losses    = losses
-                    )
-                }
+            // Fetch match IDs for this team in one query
+            val teamMatchIds = Matches
+                .select(Matches.id)
+                .where { (Matches.homeTeamId eq uuid) or (Matches.awayTeamId eq uuid) }
+                .map { it[Matches.id] }
+                .toSet()
+
+            // Fetch all relevant singles games within those matches in one query
+            val wins   = mutableMapOf<UUID, Int>()
+            val losses = mutableMapOf<UUID, Int>()
+
+            if (teamMatchIds.isNotEmpty()) {
+                Games
+                    .select(Games.homePlayer1Id, Games.awayPlayer1Id, Games.result)
+                    .where {
+                        (Games.matchId inList teamMatchIds) and
+                        (Games.gameType eq GameType.SINGLES) and
+                        ((Games.homePlayer1Id inList playerIds) or (Games.awayPlayer1Id inList playerIds))
+                    }
+                    .forEach { row ->
+                        val homeId = row[Games.homePlayer1Id]
+                        val awayId = row[Games.awayPlayer1Id]
+                        when (row[Games.result]) {
+                            GameResult.HOME -> {
+                                if (homeId in playerIds) wins[homeId!!]   = (wins[homeId]   ?: 0) + 1
+                                if (awayId in playerIds) losses[awayId!!] = (losses[awayId] ?: 0) + 1
+                            }
+                            GameResult.AWAY -> {
+                                if (awayId in playerIds) wins[awayId!!]   = (wins[awayId]   ?: 0) + 1
+                                if (homeId in playerIds) losses[homeId!!] = (losses[homeId] ?: 0) + 1
+                            }
+                            else -> Unit
+                        }
+                    }
+            }
+
+            playerRows.map { playerRow ->
+                val pId = playerRow[Players.id]
+                TeamPlayerResponse(
+                    id        = pId.toString(),
+                    fullName  = playerRow[Players.fullName],
+                    licenceNr = playerRow[Players.licenceNr],
+                    wins      = wins[pId]   ?: 0,
+                    losses    = losses[pId] ?: 0
+                )
+            }
         }
     }
 

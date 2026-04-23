@@ -122,3 +122,29 @@ data class PagedResponse<T>(
     val size: Int,
     val total: Long,
 )
+
+@Serializable
+data class EloEntryResponse(
+    val eloValue: Int,
+    val recordedAt: String,
+    val seasonName: String,
+)
+
+@Serializable
+data class PlayerGameResponse(
+    val matchId: String,
+    val gameId: String,
+    val playedAt: String?,
+    val homeTeam: String,
+    val awayTeam: String,
+    val homeScore: Int?,
+    val awayScore: Int?,
+    val round: String?,
+    val status: MatchStatus,
+    val playerSide: String,
+    val opponentName: String?,
+    val homeSets: Int?,
+    val awaySets: Int?,
+    val result: GameResult,
+    val eloDelta: Double?,
+)

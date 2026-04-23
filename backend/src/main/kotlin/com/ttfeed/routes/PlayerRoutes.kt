@@ -49,5 +49,25 @@ fun Route.playerRoutes() {
 
             call.respond(HttpStatusCode.OK, player.copy(isSyncing = shouldSync))
         }
+
+        get("/{id}/elo") {
+            val id = call.parameters["id"]
+                ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing player id")
+
+            val history = PlayerService.getEloHistory(id)
+                ?: return@get call.respond(HttpStatusCode.NotFound, "Player not found")
+
+            call.respond(HttpStatusCode.OK, history)
+        }
+
+        get("/{id}/matches") {
+            val id = call.parameters["id"]
+                ?: return@get call.respond(HttpStatusCode.BadRequest, "Missing player id")
+
+            val matches = PlayerService.getMatchHistory(id)
+                ?: return@get call.respond(HttpStatusCode.NotFound, "Player not found")
+
+            call.respond(HttpStatusCode.OK, matches)
+        }
     }
 }
