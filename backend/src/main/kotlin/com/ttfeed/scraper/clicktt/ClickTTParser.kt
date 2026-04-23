@@ -60,25 +60,32 @@ class ClickTTParser {
             ?.text()?.trim()?.takeIf { it.isNotBlank() }
 
     private fun parseCurrentElo(doc: Document): Int? {
-        val eloElement = doc.select("td:containsOwn(Klassierung)").next("td").firstOrNull()
+        // eloFilter page: info table has <td><b>Elo-Wert</b></td><td class="right">1016</td>
+        val eloLabelCell = doc.selectFirst("td:has(b:containsOwn(Elo-Wert))")
+        if (eloLabelCell != null) {
+            eloLabelCell.nextElementSibling()?.text()?.trim()?.toIntOrNull()?.let { return it }
+        }
+
+        // Portrait page: Klassierung shows a classification string like "C7 / B12" — no numeric ELO here.
+        // Some older pages may show "A21 (1234)", so still try parsing as a fallback.
+        val klassCell = doc.select("td:containsOwn(Klassierung)").next("td").firstOrNull()
             ?: doc.select("div:containsOwn(Klassierung)").next("div").firstOrNull()
-
-        val text = eloElement?.text()?.trim() ?: return null
-
-        // Format: "A21 (1234)" or just "1234"
+        val text = klassCell?.text()?.trim() ?: return null
         return Regex("\\b([A-Z]\\d{1,2})\\s*\\((\\d+)\\)").find(text)?.groupValues?.last()?.toIntOrNull()
-            ?: Regex("\\b(\\d+)\\b").find(text)?.groupValues?.last()?.toIntOrNull()
     }
 
     private fun parseGames(doc: Document): List<ClickTTGame> {
         val games = mutableListOf<ClickTTGame>()
 
-        // Find all result tables that have an "Opponent" / "Gegner" column header.
-        // This skips the info table at the top and correctly targets monthly result tables.
+        // Find all result tables that have a "Spieler" / "Gegner" / "Opponent" column header.
+        // "Begegnung" (competition column) also uniquely identifies the game history tables.
         val tables = doc.select("table.result-set").filter { table ->
             table.select("th").any { th ->
-                th.text().contains("Opponent", ignoreCase = true) ||
-                        th.text().contains("Gegner", ignoreCase = true)
+                val text = th.text()
+                text.contains("Spieler", ignoreCase = true) ||
+                text.contains("Gegner", ignoreCase = true) ||
+                text.contains("Opponent", ignoreCase = true) ||
+                text.contains("Begegnung", ignoreCase = true)
             }
         }
 

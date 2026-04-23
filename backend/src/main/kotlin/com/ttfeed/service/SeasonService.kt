@@ -21,4 +21,12 @@ object SeasonService {
             .map { it[Seasons.id] }
             .firstOrNull()
     }
+
+    suspend fun getCurrentSeason(): Pair<UUID, String>? = dbQuery {
+        Seasons.select(Seasons.id, Seasons.name)
+            .orderBy(Seasons.name to SortOrder.DESC)
+            .limit(1)
+            .map { it[Seasons.id] to it[Seasons.name] }
+            .firstOrNull()
+    }
 }

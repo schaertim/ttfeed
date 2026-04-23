@@ -51,7 +51,7 @@ class OverallPlayerScraper(
 
     private suspend fun scrapeSeason(
         seasonName: String,
-        existingPlayers: Map<String, Pair<String, UUID>>
+        existingPlayers: Map<String, Pair<String?, UUID>>
     ): Pair<Int, Int> {
         val html    = client.fetchOverallPlayers(seasonName)
         val players = parser.parseOverallPlayers(html)

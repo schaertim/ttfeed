@@ -19,40 +19,58 @@ class ClickTTMatchScraper(
      * Finds all completed click-tt matches that have no game rows yet and scrapes their details.
      */
     suspend fun run() {
-        val matches = transaction {
-            (Matches innerJoin Groups innerJoin Federations innerJoin Seasons)
-                .select(
-                    Matches.id,
-                    Matches.clickttMatchId,
-                    Matches.homeTeamId,
-                    Matches.awayTeamId,
-                    Matches.playedAt,
-                    Groups.clickttId,
-                    Federations.name,
-                    Seasons.name
-                )
-                .where {
-                    (Matches.status         eq MatchStatus.COMPLETED) and
+        val matches = pendingMatches()
+        logger.info("ClickTTMatchScraper: ${matches.size} completed matches without game details")
+        scrapeAll(matches)
+        logger.info("ClickTTMatchScraper complete")
+    }
+
+    /**
+     * Scrapes game details for a specific set of match DB UUIDs (e.g. newly completed matches
+     * detected by the poll job). Ignores any IDs that already have game rows.
+     */
+    suspend fun scrapeForMatches(matchIds: Set<UUID>) {
+        if (matchIds.isEmpty()) return
+        val matches = pendingMatches(filterIds = matchIds)
+        logger.info("ClickTTMatchScraper: scraping ${matches.size} targeted matches")
+        scrapeAll(matches)
+    }
+
+    private fun pendingMatches(filterIds: Set<UUID>? = null): List<MatchToScrape> = transaction {
+        val rows = (Matches innerJoin Groups innerJoin Federations innerJoin Seasons)
+            .select(
+                Matches.id,
+                Matches.clickttMatchId,
+                Matches.homeTeamId,
+                Matches.awayTeamId,
+                Matches.playedAt,
+                Groups.clickttId,
+                Federations.name,
+                Seasons.name
+            )
+            .where {
+                val base = (Matches.status         eq MatchStatus.COMPLETED) and
                     (Matches.clickttMatchId.isNotNull()) and
                     (Groups.clickttId.isNotNull()) and
                     (Matches.id notInSubQuery Games.select(Games.matchId).withDistinct())
-                }
-                .map {
-                    MatchToScrape(
-                        matchId        = it[Matches.id],
-                        clickttMatchId = it[Matches.clickttMatchId]!!,
-                        clickttGroupId = it[Groups.clickttId]!!,
-                        homeTeamId     = it[Matches.homeTeamId],
-                        awayTeamId     = it[Matches.awayTeamId],
-                        playedAt       = it[Matches.playedAt],
-                        federationName = it[Federations.name],
-                        season         = it[Seasons.name]
-                    )
-                }
+                if (filterIds != null) base and (Matches.id inList filterIds) else base
+            }
+
+        rows.map {
+            MatchToScrape(
+                matchId        = it[Matches.id],
+                clickttMatchId = it[Matches.clickttMatchId]!!,
+                clickttGroupId = it[Groups.clickttId]!!,
+                homeTeamId     = it[Matches.homeTeamId],
+                awayTeamId     = it[Matches.awayTeamId],
+                playedAt       = it[Matches.playedAt],
+                federationName = it[Federations.name],
+                season         = it[Seasons.name]
+            )
         }
+    }
 
-        logger.info("ClickTTMatchScraper: ${matches.size} completed matches without game details")
-
+    private suspend fun scrapeAll(matches: List<MatchToScrape>) {
         for ((index, match) in matches.withIndex()) {
             try {
                 scrapeMatch(match)
@@ -63,8 +81,6 @@ class ClickTTMatchScraper(
                 logger.error("Failed meetingId=${match.clickttMatchId}: ${e.message}")
             }
         }
-
-        logger.info("ClickTTMatchScraper complete")
     }
 
     private suspend fun scrapeMatch(match: MatchToScrape) {

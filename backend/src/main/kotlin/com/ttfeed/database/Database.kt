@@ -10,8 +10,8 @@ import org.jetbrains.exposed.sql.transactions.transaction
 
 fun Application.configureDatabase() {
     val config = environment.config.config("database")
-    val url = config.property("url").getString()
-    val user = config.property("user").getString()
+    val url      = config.property("url").getString()
+    val user     = config.property("user").getString()
     val password = config.property("password").getString()
 
     Flyway.configure()
@@ -20,9 +20,9 @@ fun Application.configureDatabase() {
         .migrate()
 
     Database.connect(
-        url = url,
-        driver = config.property("driver").getString(),
-        user = user,
+        url      = url,
+        driver   = config.property("driver").getString(),
+        user     = user,
         password = password
     )
 }

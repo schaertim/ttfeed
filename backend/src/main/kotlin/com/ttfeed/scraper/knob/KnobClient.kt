@@ -2,6 +2,7 @@ package com.ttfeed.scraper.knob
 
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import kotlinx.coroutines.delay
@@ -12,10 +13,12 @@ class KnobClient {
     private val logger  = LoggerFactory.getLogger(KnobClient::class.java)
 
     private val client = HttpClient(CIO) {
-        followRedirects = true
-        engine {
-            requestTimeout = 30_000
+        install(HttpTimeout) {
+            connectTimeoutMillis = 10_000
+            requestTimeoutMillis = 30_000
+            socketTimeoutMillis  = 30_000
         }
+        followRedirects = true
     }
 
     suspend fun fetchDivisionPage(gruppeId: Int, season: String? = null, rvid: Int? = null): String {

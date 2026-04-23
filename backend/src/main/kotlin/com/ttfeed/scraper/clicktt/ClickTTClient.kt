@@ -2,7 +2,8 @@ package com.ttfeed.scraper.clicktt
 
 import io.ktor.client.*
 import io.ktor.client.engine.cio.*
-import io.ktor.client.plugins.cookies.* // Optional, aber gut zu behalten
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.cookies.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import kotlinx.coroutines.delay
@@ -14,8 +15,12 @@ class ClickTTClient {
 
     private val client = HttpClient(CIO) {
         install(HttpCookies)
+        install(HttpTimeout) {
+            connectTimeoutMillis = 10_000
+            requestTimeoutMillis = 30_000
+            socketTimeoutMillis  = 30_000
+        }
         followRedirects = true
-        engine { requestTimeout = 30_000 }
     }
 
     suspend fun fetchPlayerPortrait(personId: Int, season: String? = null): String {

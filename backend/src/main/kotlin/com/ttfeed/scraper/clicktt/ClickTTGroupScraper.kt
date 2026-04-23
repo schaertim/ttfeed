@@ -85,7 +85,7 @@ class ClickTTGroupScraper(
 
                     upsertStandings(standings, groupId, teamIdByTableId)
                     updateGroupZones(groupId, standings)
-                    upsertMatches(matches, groupId, teamIdByName)
+                    upsertMatchesReturningCompleted(matches, groupId, teamIdByName)
                 }
 
                 logger.info("    group=${group.groupId} → ${group.divisionName} — ${standings.size} teams, ${matches.size} matches")
@@ -199,15 +199,52 @@ class ClickTTGroupScraper(
     }
 
     /**
-     * Inserts matches from the schedule.
-     * teamIdByName: team name (as it appears in the schedule) → DB UUID.
-     * Names come from standings so they should match schedule rows exactly.
+     * Re-fetches the match schedule for an already-known group and updates match statuses.
+     * Returns the DB UUIDs of matches that transitioned from SCHEDULED to COMPLETED.
      */
-    private fun upsertMatches(
+    suspend fun refreshGroupSchedule(group: GroupRef): List<UUID> {
+        val scheduleHtml = client.fetchGroupPage(group.championship, group.clickttId, displayDetail = "meetings")
+        val matches      = parser.parseMatchSchedule(scheduleHtml)
+
+        return transaction {
+            val teamIdByName = Teams.select(Teams.id, Teams.name)
+                .where { Teams.groupId eq group.dbId }
+                .associate { it[Teams.name] to it[Teams.id] }
+
+            upsertMatchesReturningCompleted(matches, group.dbId, teamIdByName)
+        }
+    }
+
+    /** Re-fetches standings for an already-known group and updates the DB. */
+    suspend fun refreshGroupStandings(group: GroupRef) {
+        val standingsHtml = client.fetchGroupPage(group.championship, group.clickttId)
+        val standings     = parser.parseGroupStandings(standingsHtml)
+        if (standings.isEmpty()) return
+
+        transaction {
+            val teamIdByTableId = standings.mapNotNull { s ->
+                Teams.select(Teams.id)
+                    .where { Teams.clickttId eq s.teamTableId }
+                    .firstOrNull()
+                    ?.let { s.teamTableId to it[Teams.id] }
+            }.toMap()
+
+            upsertStandings(standings, group.dbId, teamIdByTableId)
+            updateGroupZones(group.dbId, standings)
+        }
+    }
+
+    /**
+     * Inserts new matches and updates completed ones. Returns DB UUIDs of matches that
+     * transitioned from SCHEDULED to COMPLETED in this call.
+     */
+    private fun upsertMatchesReturningCompleted(
         matches: List<ParsedClickTTMatch>,
         groupId: UUID,
         teamIdByName: Map<String, UUID>
-    ) {
+    ): List<UUID> {
+        val newlyCompleted = mutableListOf<UUID>()
+
         for (match in matches) {
             val homeTeamId = teamIdByName[match.homeTeamName] ?: continue
             val awayTeamId = teamIdByName[match.awayTeamName] ?: continue
@@ -242,7 +279,7 @@ class ClickTTGroupScraper(
                 }
             } else if (match.status == MatchStatus.COMPLETED && match.meetingId != null) {
                 // Match just finished — fill in score, meeting ID, and round
-                Matches.update({
+                val updated = Matches.update({
                     (Matches.groupId    eq groupId) and
                     (Matches.homeTeamId eq homeTeamId) and
                     (Matches.awayTeamId eq awayTeamId) and
@@ -254,9 +291,21 @@ class ClickTTGroupScraper(
                     it[Matches.round]          = match.round
                     it[Matches.status]         = MatchStatus.COMPLETED
                 }
+                if (updated > 0) {
+                    Matches.select(Matches.id)
+                        .where { Matches.clickttMatchId eq match.meetingId }
+                        .firstOrNull()
+                        ?.get(Matches.id)
+                        ?.let { newlyCompleted.add(it) }
+                }
             }
         }
+
+        return newlyCompleted
     }
+
+    /** Identifies a group for incremental refresh operations. */
+    data class GroupRef(val dbId: UUID, val clickttId: Int, val championship: String)
 
     private fun parseMatchDateTime(date: String, time: String?): OffsetDateTime? = try {
         val raw = if (time != null) "$date $time" else date

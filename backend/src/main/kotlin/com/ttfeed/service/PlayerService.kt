@@ -72,6 +72,12 @@ object PlayerService {
             .map { it[Players.id] to it[Players.licenceNr]!! }
     }
 
+    suspend fun getAllPlayersWithClickTtId(): List<Pair<UUID, Int>> = dbQuery {
+        Players.select(Players.id, Players.clickttId)
+            .where { Players.clickttId.isNotNull() }
+            .map { it[Players.id] to it[Players.clickttId]!! }
+    }
+
     suspend fun saveBaseElo(playerId: UUID, seasonId: UUID, eloValue: Int) = dbQuery {
         PlayerElos.insert {
             it[PlayerElos.playerId]   = playerId
